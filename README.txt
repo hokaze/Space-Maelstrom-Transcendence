@@ -6,4 +6,5 @@ Will eventually be open-sourced fully and licensed under the MIT License.
 The name "SMT" is derived from how the code started out, as a practice "Simple Motion Test" to learn the SDL library and its extensions.
 It may not yet be a truly playable game, but needless to say, SMT has gone beyond its original name.
 
-Code, images and bgm is (C) James Wright <hokazenoflames@gmail.com>
+Code, images, sounds and bgm are all (C) James Wright <hokazenoflames@gmail.com>
+For ownership and license details of other assets such as libraries, see "LICENSE.txt"

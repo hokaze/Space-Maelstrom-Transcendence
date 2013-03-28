@@ -881,5 +881,5 @@ void Asteroid::die()
 	alive = false;
 	box.x = -100; box.y = +100;
 	xv = 0; yv = 0;
-	spawn();
+	spawn(); // the fun never ends!
 }
