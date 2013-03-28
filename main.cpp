@@ -18,7 +18,8 @@
 // Standard includes
 #include <string>
 #include <sstream>
-//#include <iostream>
+#include <cstdlib>
+#include <ctime>
 using namespace std;
 
 
@@ -50,6 +51,7 @@ const int B2_COOLDOWN = 30;
 // Obstacle related stuff
 const int AS1_HEIGHT = 50;
 const int AS1_WIDTH = 50;
+const int AS1_MAX = 4;
 
 // Setup surfaces, event system and BGM
 SDL_Surface *ship = NULL;
@@ -132,10 +134,14 @@ class Bullet
 
 class Asteroid
 {
+	int xv, yv;
+	
 	public:
 	SDL_Rect box;
 	bool alive;
 	Asteroid();
+	void spawn();
+	void update();
 	void show(SDL_Surface* bullet_surface);
 	void die();
 };
@@ -157,6 +163,8 @@ bool box_collision(SDL_Rect A, SDL_Rect B);
 int main(int argc, char* args[]) // standard SDL setup for main()
 {
 	bool quit = false; // quit flag
+	srand(time(NULL)); // initialise random seed
+	
 	int bg_x = 0, bg_y = 0; // offsets used by the scrolling background
 	int stars_x = 0, stars_y = 0, planets_x = 0, planets_y = 0, nebulae_x = 0, nebulae_y = 0;
 	
@@ -177,7 +185,11 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	int b2_cooldown = B2_COOLDOWN;
 	bool b2_firing = false;
 
-	Asteroid a1;
+	Asteroid a1[AS1_MAX];
+	for (int i = 0; i < AS1_MAX; i++)
+	{
+		a1[i].spawn();
+	}
 
 	set_clips();
 	Timer fps; // frame rate regulator
@@ -278,34 +290,43 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		for (int i = 0; i < B1_SHOTS; i++)
 		{
 			b1[i].update();
-			if (box_collision(b1[i].box, a1.box)) // lazy box collision between bullet and asteroid
+			for (int i = 0; i < AS1_MAX; i++)
 			{
-				a1.die();
-				b1[i].alive = false;
+				if (box_collision(b1[i].box, a1[i].box)) // lazy box collision between bullet and asteroid
+				{
+					a1[i].die();
+					b1[i].alive = false;
+				}
 			}
 		}
 
 		for (int i = 0; i < B2_SHOTS; i++)
 		{
 			b2[i].update();
-			if (box_collision(b2[i].box, a1.box))
+			for (int i = 0; i < AS1_MAX; i++)
 			{
-				a1.die();
-				b2[i].alive = false;
+				if (box_collision(b2[i].box, a1[i].box))
+				{
+					a1[i].die();
+					b2[i].alive = false;
+				}
 			}
 		}
 
 		b1_cooldown--;
 		b2_cooldown--;
-
-		if (box_collision(my_ship.box, a1.box)) // lazy box collision between ship and asteroid
+		
+		for (int i = 0; i < AS1_MAX; i++)
 		{
-			my_ship.health -= 10;
-			ss << my_ship.health;
-			HUD_health_txt = "Health = " + ss.str();
-			ss.str(string()); // set stream to empty string
-			ss.clear(); // clear fail/EOF flags
-			a1.die();
+			if (box_collision(my_ship.box, a1[i].box)) // lazy box collision between ship and asteroid
+			{
+				my_ship.health -= 10;
+				ss << my_ship.health;
+				HUD_health_txt = "Health = " + ss.str();
+				ss.str(string()); // set stream to empty string
+				ss.clear(); // clear fail/EOF flags
+				a1[i].die();
+			}
 		}
 
 		
@@ -354,14 +375,18 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		{
 			b2[i].show(bullet2);
 		}
-
+		
 		my_ship.show(); // display the ship's current position
-
-		a1.show(asteroid);
+		
+		for (int i = 0; i < AS1_MAX; i++)
+		{
+			a1[i].update();
+			a1[i].show(asteroid);
+		}
 		
 		apply_surface(nebulae_x, nebulae_y, nebulae, screen);
 		apply_surface(nebulae_x, nebulae_y - nebulae->h, nebulae, screen);
-
+		
 		HUD_health = TTF_RenderText_Solid(font1, HUD_health_txt.c_str(), WHITE);
 		apply_surface(5, 5, HUD_health, screen);
 		
@@ -440,7 +465,7 @@ bool init()
 		return false;
 	}
 	
-	screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE | SDL_FULLSCREEN); // setup screen
+	screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE); // setup screen
 	
 	// If there was an error in setting up the screen, return false
 	if( screen == NULL )
@@ -482,8 +507,8 @@ bool load_files()
 	planets = load_image("img/planets.png");
 	nebulae = load_image("img/nebulae.png");
 	bgm1 = Mix_LoadMUS("snd/bgm1.ogg");
-	shot1 = Mix_LoadWAV("snd/blip1.wav");
-	shot2 = Mix_LoadWAV("snd/blip2.wav");
+	shot1 = Mix_LoadWAV("snd/pew1.wav");
+	shot2 = Mix_LoadWAV("snd/pew2.wav");
 	font1 = TTF_OpenFont("terminus.ttf", 12);
 	
 	// If any file doesn't load, return false
@@ -774,13 +799,13 @@ void Bullet::update()
 		alive = false;
 	}
 	
-	if (box.x < (0 - SHIP_WIDTH / 4))
+	if (box.x < (0 - box.w / 4))
 	{
-		box.x = SCREEN_WIDTH - (SHIP_WIDTH / 4);
+		box.x = SCREEN_WIDTH - (box.w / 4);
 	}
-	else if (box.x > (SCREEN_WIDTH - SHIP_WIDTH / 4))
+	else if (box.x > (SCREEN_WIDTH - box.w / 4))
 	{
-		box.x = 0 - (SHIP_WIDTH / 4);
+		box.x = 0 - (box.w / 4);
 	}
 }
 
@@ -805,8 +830,42 @@ void Bullet::show(SDL_Surface* bullet_surface)
 
 Asteroid::Asteroid()
 {
+	alive = false;
+	box.x = -100; box.y = 100; xv = 0; yv = 0;
+	box.w= AS1_WIDTH; box.h = AS1_HEIGHT;
+}
+
+void Asteroid::spawn()
+{
 	alive = true;
-	box.x = 400; box.y = 200; box.w = AS1_WIDTH; box.h = AS1_HEIGHT;
+	box.x = rand() % SCREEN_WIDTH; 
+	box.y = rand() % 50 - SCREEN_HEIGHT; 
+	xv = rand() % 4 - 2;
+	yv = rand() % 4 + 2;
+}
+
+void Asteroid::update()
+{
+	if (alive)
+	{
+		box.x += xv;
+		box.y += yv;
+	}
+	
+	if((box.y > SCREEN_HEIGHT))
+	{
+		die();
+	}
+	
+	if (box.x < (0 - box.w / 2))
+	{
+		box.x = SCREEN_WIDTH - (box.w / 2);
+	}
+	else if (box.x > (SCREEN_WIDTH - box.w / 2))
+	{
+		box.x = 0 - (box.w / 2);
+	}
+
 }
 
 void Asteroid::show(SDL_Surface* asteroid_surface)
@@ -820,5 +879,7 @@ void Asteroid::show(SDL_Surface* asteroid_surface)
 void Asteroid::die()
 {
 	alive = false;
-	box.x = -100; box.y = -100;
+	box.x = -100; box.y = +100;
+	xv = 0; yv = 0;
+	spawn();
 }
