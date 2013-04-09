@@ -43,15 +43,15 @@ const int SHIP_B2_WIDTH = 14;
 const int SHIP_B2_HEIGHT = 18;
 
 // Bullet related stuff
-const int B1_SHOTS = 5;
-const int B1_COOLDOWN = 10;
-const int B2_SHOTS = 8;
-const int B2_COOLDOWN = 30;
+const int B1_SHOTS = 50;
+const int B1_COOLDOWN = 1;
+const int B2_SHOTS = 80;
+const int B2_COOLDOWN = 3;
 
 // Obstacle related stuff
 const int AS1_HEIGHT = 50;
 const int AS1_WIDTH = 50;
-const int AS1_MAX = 4;
+const int AS1_MAX = 10;
 
 // Setup surfaces, event system and BGM
 SDL_Surface *ship = NULL;
@@ -130,6 +130,7 @@ class Bullet
 	void update();
 	void fire(int start_x, int start_y, int x_speed, int y_speed, int width, int height);
 	void show(SDL_Surface* bullet_surface);
+	void die();
 };
 
 class Asteroid
@@ -290,12 +291,12 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		for (int i = 0; i < B1_SHOTS; i++)
 		{
 			b1[i].update();
-			for (int i = 0; i < AS1_MAX; i++)
+			for (int j = 0; j < AS1_MAX; j++)
 			{
-				if (box_collision(b1[i].box, a1[i].box)) // lazy box collision between bullet and asteroid
+				if (box_collision(b1[i].box, a1[j].box)) // lazy box collision between bullet and asteroid
 				{
-					a1[i].die();
-					b1[i].alive = false;
+					a1[j].die();
+					b1[i].die();
 				}
 			}
 		}
@@ -303,12 +304,12 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		for (int i = 0; i < B2_SHOTS; i++)
 		{
 			b2[i].update();
-			for (int i = 0; i < AS1_MAX; i++)
+			for (int j = 0; j < AS1_MAX; j++)
 			{
-				if (box_collision(b2[i].box, a1[i].box))
+				if (box_collision(b2[i].box, a1[j].box))
 				{
-					a1[i].die();
-					b2[i].alive = false;
+					a1[j].die();
+					b2[i].die();
 				}
 			}
 		}
@@ -796,7 +797,7 @@ void Bullet::update()
 	
 	if((box.y < 0) || (box.y + box.h > SCREEN_HEIGHT))
 	{
-		alive = false;
+		die();
 	}
 	
 	if (box.x < (0 - box.w / 4))
@@ -826,6 +827,13 @@ void Bullet::show(SDL_Surface* bullet_surface)
 	{
 		apply_surface(box.x, box.y, bullet_surface, screen);
 	}
+}
+
+void Bullet::die()
+{
+	alive = false;
+	box.x = -200; box.y = +200;
+	xv = 0; yv = 0;
 }
 
 Asteroid::Asteroid()
