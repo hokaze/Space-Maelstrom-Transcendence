@@ -37,12 +37,10 @@ const int MAX_FPS = 30;
 // The dimensions of the ship and its weapons
 const int SHIP_WIDTH = 32;
 const int SHIP_HEIGHT = 32;
-const int SHIP_B1_WIDTH = 10;
-const int SHIP_B1_HEIGHT = 12;
-const int SHIP_B2_WIDTH = 14;
-const int SHIP_B2_HEIGHT = 18;
-
-// Bullet related stuff
+const int B1_WIDTH = 10;
+const int B1_HEIGHT = 12;
+const int B2_WIDTH = 14;
+const int B2_HEIGHT = 18;
 const int B1_SHOTS = 50;
 const int B1_COOLDOWN = 15;
 const int B2_SHOTS = 80;
@@ -51,16 +49,27 @@ const int B2_COOLDOWN = 30;
 // Obstacle related stuff
 const int AS1_HEIGHT = 50;
 const int AS1_WIDTH = 50;
-const int AS1_MAX = 20;
+const int AS1_MAX = 10;
 const int D1_HEIGHT = 20;
 const int D1_WIDTH = 20;
+
+// Enemy related stuff
+const int E1_HEIGHT = 30;
+const int E1_WIDTH = 26;
+const int E1_MAX = 5;
+const int B3_WIDTH = 8;
+const int B3_HEIGHT = 12;
+const int B3_SHOTS = 50;
+const int B3_COOLDOWN = 60;
 
 // Setup surfaces, event system and BGM
 SDL_Surface *ship = NULL;
 SDL_Surface *bullet = NULL;
 SDL_Surface *bullet2 = NULL;
+SDL_Surface *bullet3 = NULL;
 SDL_Surface *asteroid = NULL;
 SDL_Surface *debris = NULL;
+SDL_Surface *enemy1 = NULL;
 SDL_Surface *background = NULL;
 SDL_Surface *stars = NULL;
 SDL_Surface *planets = NULL;
@@ -73,6 +82,7 @@ const SDL_Color WHITE = {255,255,255};
 Mix_Music *bgm1 = NULL;
 Mix_Chunk *shot1 = NULL;
 Mix_Chunk *shot2 = NULL;
+Mix_Chunk *shot3 = NULL;
 Mix_Chunk *break1 = NULL;
 
 SDL_Surface *HUD_health;
@@ -165,6 +175,22 @@ class Debris
 	void die();
 };
 
+class Enemy
+{
+	int xv, yv;
+	
+	public:
+	int b3_cooldown;
+	SDL_Rect box;
+	Bullet b3[B3_SHOTS];
+	bool alive;
+	Enemy();
+	void spawn();
+	void update();
+	void show(SDL_Surface* enemy_surface);
+	void die();
+};
+
 // Prototype functions
 SDL_Surface *load_image(string filename);
 void apply_surface(int x, int y, SDL_Surface* source, SDL_Surface* destination, SDL_Rect* clip = NULL);
@@ -206,10 +232,16 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 
 	Asteroid a1[AS1_MAX];
 	Debris d1[AS1_MAX*4];
+	Enemy e1[E1_MAX];
 	
 	for (int i = 0; i < AS1_MAX; i++)
 	{
 		a1[i].spawn();
+	}
+	
+	for (int i = 0; i < E1_MAX; i++)
+	{
+		e1[i].spawn();
 	}
 
 	set_clips();
@@ -282,7 +314,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			{
 				if (b1[i].alive == false)
 				{
-					b1[i].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (SHIP_B1_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), 0, -10, SHIP_B1_WIDTH, SHIP_B1_HEIGHT);
+					b1[i].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (B1_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), 0, -10, B1_WIDTH, B1_HEIGHT);
 					Mix_PlayChannel(-1, shot1, 0);
 					break;
 				}
@@ -296,10 +328,10 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			{
 				if (b2[i].alive == false)
 				{
-					b2[i].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (SHIP_B2_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), 1, -10, SHIP_B2_WIDTH, SHIP_B2_HEIGHT);
-					b2[i+1].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (SHIP_B2_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), -1, -10, SHIP_B2_WIDTH, SHIP_B2_HEIGHT);
-					b2[i+2].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (SHIP_B2_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), 2, -10, SHIP_B2_WIDTH, SHIP_B2_HEIGHT);
-					b2[i+3].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (SHIP_B2_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), -2, -10, SHIP_B2_WIDTH, SHIP_B2_HEIGHT);
+					b2[i].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), 1, -10, B2_WIDTH, B2_HEIGHT);
+					b2[i+1].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), -1, -10, B2_WIDTH, B2_HEIGHT);
+					b2[i+2].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), 2, -10, B2_WIDTH, B2_HEIGHT);
+					b2[i+3].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), -2, -10, B2_WIDTH, B2_HEIGHT);
 					Mix_PlayChannel(-1, shot2, 0);
 					break;
 				}
@@ -334,7 +366,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				}
 			}
 		}
-
+		
 		for (int i = 0; i < B2_SHOTS; i++)
 		{
 			b2[i].update();
@@ -437,6 +469,31 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		{
 			a1[i].update();
 			a1[i].show(asteroid);
+		}
+		
+		for (int i = 0; i< E1_MAX; i++)
+		{
+			if (e1[i].b3_cooldown < 1)
+			{
+				for (int j = 0; j < B3_SHOTS; j++)
+				{
+					if (e1[i].b3[j].alive == false)
+					{
+						e1[i].b3[j].fire(e1[i].box.x + (e1[i].box.w / 2) - (B3_WIDTH / 2), e1[i].box.y + (e1[i].box.h / 2), 0, 5, B3_WIDTH, B3_HEIGHT);
+						Mix_PlayChannel(-1, shot1, 0);
+						break;
+					}
+				}
+				e1[i].b3_cooldown = B3_COOLDOWN;
+				for (int j = 0; j < B3_SHOTS; j++)
+				{
+					e1[i].b3[j].update();
+					e1[i].b3[j].show(bullet3);	
+				}
+			}
+			e1[i].b3_cooldown--;
+			e1[i].update();
+			e1[i].show(enemy1);
 		}
 		
 		apply_surface(nebulae_x, nebulae_y, nebulae, screen);
@@ -556,8 +613,10 @@ bool load_files()
 	ship = load_image("img/shipsheet.png");
 	bullet = load_image("img/pew1.png");
 	bullet2 = load_image("img/pew2.png");
+	bullet3 = load_image("img/pew3.png");
 	asteroid = load_image("img/asteroid1.png");
 	debris = load_image("img/asteroid1_debris.png");
+	enemy1 = load_image("img/enemy1.png");
 	background = load_image("img/distant_bg.png");
 	stars = load_image("img/stars.png");
 	planets = load_image("img/planets.png");
@@ -565,6 +624,7 @@ bool load_files()
 	bgm1 = Mix_LoadMUS("snd/bgm1.ogg");
 	shot1 = Mix_LoadWAV("snd/pew1.wav");
 	shot2 = Mix_LoadWAV("snd/pew2.wav");
+	shot3 = Mix_LoadWAV("snd/pew3.wav");
 	break1 = Mix_LoadWAV("snd/break1.wav");
 	font1 = TTF_OpenFont("terminus.ttf", 12);
 	
@@ -905,7 +965,7 @@ void Asteroid::spawn()
 	box.x = rand() % SCREEN_WIDTH; 
 	box.y = rand() % 50 - SCREEN_HEIGHT; 
 	xv = rand() % 4 - 2;
-	yv = rand() % 4 + 2;
+	yv = rand() % 4 + 1;
 }
 
 void Asteroid::update()
@@ -943,7 +1003,7 @@ void Asteroid::show(SDL_Surface* asteroid_surface)
 void Asteroid::die()
 {
 	alive = false;
-	box.x = -200; box.y = +200;
+	box.x = -200; box.y = 200;
 	xv = 0; yv = 0;
 	spawn(); // spawn new asteroids upon death
 }
@@ -997,4 +1057,50 @@ void Debris::die()
 	alive = false;
 	box.x = -500; box.y = +500;
 	xv = 0; yv = 0;
+}
+
+Enemy::Enemy()
+{
+	alive = false;
+	box.x = -1000; box.y = 1000; xv = 0; yv = 0;
+	box.w= E1_WIDTH; box.h = E1_HEIGHT;
+	b3_cooldown = B3_COOLDOWN + rand() % 300;
+}
+
+void Enemy::spawn()
+{
+	alive = true;
+	box.x = rand() % SCREEN_WIDTH; 
+	box.y = rand() % 100; //- SCREEN_HEIGHT; 
+	yv = 0;//rand() % 4 + 2;
+}
+
+void Enemy::update()
+{
+	if (alive)
+	{
+		box.x += xv;
+		box.y += yv;
+	}
+	
+	if((box.y > SCREEN_HEIGHT))
+	{
+		die();
+	}
+}
+
+void Enemy::show(SDL_Surface* enemy_surface)
+{
+	if (alive)
+	{
+		apply_surface(box.x, box.y, enemy_surface, screen);
+	}
+}
+
+void Enemy::die()
+{
+	alive = false;
+	box.x = -1000; box.y = 1000;
+	xv = 0; yv = 0;
+	spawn(); // spawn new enemies
 }
