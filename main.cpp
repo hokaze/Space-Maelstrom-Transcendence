@@ -44,20 +44,23 @@ const int SHIP_B2_HEIGHT = 18;
 
 // Bullet related stuff
 const int B1_SHOTS = 50;
-const int B1_COOLDOWN = 1;
+const int B1_COOLDOWN = 15;
 const int B2_SHOTS = 80;
-const int B2_COOLDOWN = 3;
+const int B2_COOLDOWN = 30;
 
 // Obstacle related stuff
 const int AS1_HEIGHT = 50;
 const int AS1_WIDTH = 50;
-const int AS1_MAX = 10;
+const int AS1_MAX = 20;
+const int D1_HEIGHT = 20;
+const int D1_WIDTH = 20;
 
 // Setup surfaces, event system and BGM
 SDL_Surface *ship = NULL;
 SDL_Surface *bullet = NULL;
 SDL_Surface *bullet2 = NULL;
 SDL_Surface *asteroid = NULL;
+SDL_Surface *debris = NULL;
 SDL_Surface *background = NULL;
 SDL_Surface *stars = NULL;
 SDL_Surface *planets = NULL;
@@ -70,6 +73,7 @@ const SDL_Color WHITE = {255,255,255};
 Mix_Music *bgm1 = NULL;
 Mix_Chunk *shot1 = NULL;
 Mix_Chunk *shot2 = NULL;
+Mix_Chunk *break1 = NULL;
 
 SDL_Surface *HUD_health;
 TTF_Font *font1 = NULL;
@@ -143,7 +147,21 @@ class Asteroid
 	Asteroid();
 	void spawn();
 	void update();
-	void show(SDL_Surface* bullet_surface);
+	void show(SDL_Surface* asteroid_surface);
+	void die();
+};
+
+class Debris
+{
+	int xv, yv;
+	
+	public:
+	SDL_Rect box;
+	bool alive;
+	Debris();
+	void spawn(int start_x, int start_y, int x_speed, int y_speed);
+	void update();
+	void show(SDL_Surface* debris_surface);
 	void die();
 };
 
@@ -187,6 +205,8 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	bool b2_firing = false;
 
 	Asteroid a1[AS1_MAX];
+	Debris d1[AS1_MAX*4];
+	
 	for (int i = 0; i < AS1_MAX; i++)
 	{
 		a1[i].spawn();
@@ -295,6 +315,20 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			{
 				if (box_collision(b1[i].box, a1[j].box)) // lazy box collision between bullet and asteroid
 				{
+					// Generate debris
+					for (int k = 0; k < AS1_MAX*4; k++)
+					{
+						if (d1[k].alive == false)
+						{
+							d1[k].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), 16, 12);
+							d1[k+1].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), -16, 12);
+							d1[k+2].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), 16, -12);
+							d1[k+3].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), -16, -12);
+							Mix_PlayChannel(-1, break1, 0);
+							break;
+						}
+					}
+					// Destroy asteroid and bullet
 					a1[j].die();
 					b1[i].die();
 				}
@@ -308,6 +342,20 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			{
 				if (box_collision(b2[i].box, a1[j].box))
 				{
+					// Generate debris
+					for (int k = 0; k < AS1_MAX*4; k++)
+					{
+						if (d1[k].alive == false)
+						{
+							d1[k].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), 16, 12);
+							d1[k+1].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), -16, 12);
+							d1[k+2].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), 16, -12);
+							d1[k+3].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), -16, -12);
+							Mix_PlayChannel(-1, break1, 0);
+							break;
+						}
+					}
+					// Destroy asteroid and bullet
 					a1[j].die();
 					b2[i].die();
 				}
@@ -378,6 +426,12 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		}
 		
 		my_ship.show(); // display the ship's current position
+		
+		for (int i = 0; i < AS1_MAX*4; i++)
+		{
+			d1[i].update();
+			d1[i].show(debris);
+		}
 		
 		for (int i = 0; i < AS1_MAX; i++)
 		{
@@ -503,6 +557,7 @@ bool load_files()
 	bullet = load_image("img/pew1.png");
 	bullet2 = load_image("img/pew2.png");
 	asteroid = load_image("img/asteroid1.png");
+	debris = load_image("img/asteroid1_debris.png");
 	background = load_image("img/distant_bg.png");
 	stars = load_image("img/stars.png");
 	planets = load_image("img/planets.png");
@@ -510,6 +565,7 @@ bool load_files()
 	bgm1 = Mix_LoadMUS("snd/bgm1.ogg");
 	shot1 = Mix_LoadWAV("snd/pew1.wav");
 	shot2 = Mix_LoadWAV("snd/pew2.wav");
+	break1 = Mix_LoadWAV("snd/break1.wav");
 	font1 = TTF_OpenFont("terminus.ttf", 12);
 	
 	// If any file doesn't load, return false
@@ -784,7 +840,7 @@ bool Timer::is_started()
 Bullet::Bullet()
 {
 	alive = false;
-	box.x = 0; box.y = 0; xv = 0; yv = 0, box.w = 0, box.h = 0;
+	box.x = -400; box.y = 400; xv = 0; yv = 0, box.w = 0, box.h = 0;
 }
 
 void Bullet::update()
@@ -832,14 +888,14 @@ void Bullet::show(SDL_Surface* bullet_surface)
 void Bullet::die()
 {
 	alive = false;
-	box.x = -200; box.y = +200;
+	box.x = -400; box.y = 400;
 	xv = 0; yv = 0;
 }
 
 Asteroid::Asteroid()
 {
 	alive = false;
-	box.x = -100; box.y = 100; xv = 0; yv = 0;
+	box.x = -200; box.y = 200; xv = 0; yv = 0;
 	box.w= AS1_WIDTH; box.h = AS1_HEIGHT;
 }
 
@@ -887,7 +943,58 @@ void Asteroid::show(SDL_Surface* asteroid_surface)
 void Asteroid::die()
 {
 	alive = false;
-	box.x = -100; box.y = +100;
+	box.x = -200; box.y = +200;
 	xv = 0; yv = 0;
-	spawn(); // the fun never ends!
+	spawn(); // spawn new asteroids upon death
+}
+
+Debris::Debris()
+{
+	alive = false;
+	box.x = -500; box.y = 500; xv = 0; yv = 0;
+	box.w= D1_WIDTH; box.h = D1_HEIGHT;
+}
+
+void Debris::spawn(int start_x, int start_y, int x_speed, int y_speed)
+{
+	box.x = start_x;
+	box.y = start_y;
+	xv = x_speed;
+	yv = y_speed;
+	alive = true;
+}
+
+void Debris::update()
+{
+	if (alive)
+	{
+		box.x += xv;
+		box.y += yv;
+	}
+	
+	if((box.y > SCREEN_HEIGHT) || (box.y < 0))
+	{
+		die();
+	}
+	
+	if((box.x > SCREEN_WIDTH) || (box.x < 0))
+	{
+		die();
+	}
+	
+}
+
+void Debris::show(SDL_Surface* debris_surface)
+{
+	if (alive)
+	{
+		apply_surface(box.x, box.y, debris_surface, screen);
+	}
+}
+
+void Debris::die()
+{
+	alive = false;
+	box.x = -500; box.y = +500;
+	xv = 0; yv = 0;
 }
