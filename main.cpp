@@ -23,7 +23,6 @@
 using namespace std;
 
 
-
 //////////////////////////////////////////////////////////////////////
 // Constants, classes and prototypes                                //
 //////////////////////////////////////////////////////////////////////
@@ -49,7 +48,7 @@ const int B2_COOLDOWN = 30;
 // Obstacle related stuff
 const int AS1_HEIGHT = 50;
 const int AS1_WIDTH = 50;
-const int AS1_MAX = 10;
+const int AS1_MAX = 20;
 const int D1_HEIGHT = 20;
 const int D1_WIDTH = 20;
 
@@ -158,7 +157,7 @@ class Asteroid
 	void spawn();
 	void update();
 	void show(SDL_Surface* asteroid_surface);
-	void die();
+	void die(bool respawn = true);
 };
 
 class Debris
@@ -577,7 +576,7 @@ bool init()
 		return false;
 	}
 	
-	screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE); // setup screen
+	screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE | SDL_FULLSCREEN); // setup screen
 	
 	// If there was an error in setting up the screen, return false
 	if( screen == NULL )
@@ -647,10 +646,14 @@ void clean_quit()
 	SDL_FreeSurface(planets);
 	SDL_FreeSurface(nebulae);
 	SDL_FreeSurface(bullet);
+	SDL_FreeSurface(debris);
+	SDL_FreeSurface(enemy1);
 	
 	Mix_FreeMusic(bgm1); // free the audio stream
 	Mix_FreeChunk(shot1);
 	Mix_FreeChunk(shot2);
+	Mix_FreeChunk(shot3);
+	Mix_FreeChunk(break1);
 	Mix_CloseAudio(); // close the audio mixer
 
 	SDL_FreeSurface(HUD_health);
@@ -1000,12 +1003,16 @@ void Asteroid::show(SDL_Surface* asteroid_surface)
 	}
 }
 
-void Asteroid::die()
+void Asteroid::die(bool respawn)
 {
 	alive = false;
 	box.x = -200; box.y = 200;
 	xv = 0; yv = 0;
-	spawn(); // spawn new asteroids upon death
+
+	if (respawn)
+	{
+		spawn(); // spawn new asteroids upon death
+	}
 }
 
 Debris::Debris()
@@ -1042,6 +1049,15 @@ void Debris::update()
 		die();
 	}
 	
+	/*if (box.x < (0 - box.w / 2))
+	{
+		box.x = SCREEN_WIDTH - (box.w / 2);
+	}
+	else if (box.x > (SCREEN_WIDTH - box.w / 2))
+	{
+		box.x = 0 - (box.w / 2);
+	}*/
+
 }
 
 void Debris::show(SDL_Surface* debris_surface)
