@@ -55,7 +55,7 @@ const int D1_WIDTH = 20;
 // Enemy related stuff
 const int E1_HEIGHT = 30;
 const int E1_WIDTH = 26;
-const int E1_MAX = 5;
+const int E1_MAX = 10;
 const int B3_WIDTH = 8;
 const int B3_HEIGHT = 12;
 const int B3_SHOTS = 4;
@@ -576,7 +576,7 @@ bool init()
 		return false;
 	}
 	
-	screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE); // setup screen
+	screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE | SDL_FULLSCREEN); // setup screen
 	
 	// If there was an error in setting up the screen, return false
 	if( screen == NULL )
@@ -966,7 +966,7 @@ void Asteroid::spawn()
 {
 	alive = true;
 	box.x = rand() % SCREEN_WIDTH; 
-	box.y = rand() % 50 - SCREEN_HEIGHT; 
+	box.y = rand() % 100 - SCREEN_HEIGHT; 
 	xv = rand() % 4 - 2;
 	yv = rand() % 4 + 1;
 }
@@ -1087,8 +1087,8 @@ void Enemy::spawn()
 {
 	alive = true;
 	box.x = rand() % SCREEN_WIDTH; 
-	box.y = rand() % 100; //- SCREEN_HEIGHT; 
-	yv = 0;//rand() % 4 + 2;
+	box.y = rand() % 200 - SCREEN_HEIGHT; 
+	yv = rand() % 4 + 2;
 }
 
 void Enemy::update()
