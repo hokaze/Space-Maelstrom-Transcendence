@@ -58,7 +58,7 @@ const int E1_WIDTH = 26;
 const int E1_MAX = 5;
 const int B3_WIDTH = 8;
 const int B3_HEIGHT = 12;
-const int B3_SHOTS = 50;
+const int B3_SHOTS = 4;
 const int B3_COOLDOWN = 60;
 
 // Setup surfaces, event system and BGM
@@ -479,16 +479,16 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					if (e1[i].b3[j].alive == false)
 					{
 						e1[i].b3[j].fire(e1[i].box.x + (e1[i].box.w / 2) - (B3_WIDTH / 2), e1[i].box.y + (e1[i].box.h / 2), 0, 5, B3_WIDTH, B3_HEIGHT);
-						Mix_PlayChannel(-1, shot1, 0);
+						Mix_PlayChannel(-1, shot3, 0);
 						break;
 					}
 				}
 				e1[i].b3_cooldown = B3_COOLDOWN;
-				for (int j = 0; j < B3_SHOTS; j++)
-				{
-					e1[i].b3[j].update();
-					e1[i].b3[j].show(bullet3);	
-				}
+			}
+			for (int j = 0; j < B3_SHOTS; j++)
+			{
+				e1[i].b3[j].update();
+				e1[i].b3[j].show(bullet3);	
 			}
 			e1[i].b3_cooldown--;
 			e1[i].update();
@@ -576,7 +576,7 @@ bool init()
 		return false;
 	}
 	
-	screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE | SDL_FULLSCREEN); // setup screen
+	screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE); // setup screen
 	
 	// If there was an error in setting up the screen, return false
 	if( screen == NULL )
