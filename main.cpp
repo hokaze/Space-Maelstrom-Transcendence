@@ -83,8 +83,10 @@ Mix_Chunk *shot1 = NULL;
 Mix_Chunk *shot2 = NULL;
 Mix_Chunk *shot3 = NULL;
 Mix_Chunk *break1 = NULL;
+Mix_Chunk *break2 = NULL;
 
 SDL_Surface *HUD_health;
+SDL_Surface *HUD_score;
 TTF_Font *font1 = NULL;
 
 //The area of the sprite sheet
@@ -130,7 +132,7 @@ class Timer
 	bool is_started();
 };
 
-// Basic bullet, expires when it flies off-screen. No damage or enemy collision yet.
+// Basic bullet, expires when it flies off-screen.
 class Bullet
 {
 	int xv, yv;
@@ -146,6 +148,7 @@ class Bullet
 	void die();
 };
 
+// Basic obstacle, respawns when it passes bottom of screen or dies
 class Asteroid
 {
 	int xv, yv;
@@ -160,6 +163,7 @@ class Asteroid
 	void die(bool respawn = true);
 };
 
+// Generated upon destruction of Asteroid object
 class Debris
 {
 	int xv, yv;
@@ -174,6 +178,7 @@ class Debris
 	void die();
 };
 
+// Base enemy that just moves down and fires, no AI
 class Enemy
 {
 	int xv, yv;
@@ -207,6 +212,7 @@ bool box_collision(SDL_Rect A, SDL_Rect B);
 int main(int argc, char* args[]) // standard SDL setup for main()
 {
 	bool quit = false; // quit flag
+	int score = 0;
 	srand(time(NULL)); // initialise random seed
 	
 	int bg_x = 0, bg_y = 0; // offsets used by the scrolling background
@@ -214,12 +220,20 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	
 	Ship my_ship; // setup the ship
 
+	// Setup HUD for health
 	string HUD_health_txt;
 	stringstream ss;
 	ss << my_ship.health;
 	HUD_health_txt = "Health = " + ss.str();
 	ss.str(string()); // set stream to empty string
 	ss.clear(); // clear fail/EOF flags
+
+	// Setup HUD for score
+	string HUD_score_txt;
+	ss << score;
+	HUD_score_txt = "Score = " + ss.str();
+	ss.str(string());
+	ss.clear();
 
 	Bullet b1[B1_SHOTS]; // setup primitive bullet
 	int b1_cooldown = B1_COOLDOWN;
@@ -276,11 +290,11 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			
 			if (event.type == SDL_KEYDOWN)
 			{
-				if (event.key.keysym.sym == SDLK_z) // handle weapon firing
+				if (event.key.keysym.sym == SDLK_z) // keydown for bullet 1
 				{
 					b1_firing = true;
 				}
-				if (event.key.keysym.sym == SDLK_x)
+				if (event.key.keysym.sym == SDLK_x) // keydown for bullet 2
 				{
 					b2_firing = true;
 				}
@@ -288,11 +302,11 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 
 			else if (event.type == SDL_KEYUP)
 			{
-				if (event.key.keysym.sym == SDLK_z)
+				if (event.key.keysym.sym == SDLK_z) // keyup for bullet 1
 				{
 					b1_firing = false;
 				}
-				if (event.key.keysym.sym == SDLK_x)
+				if (event.key.keysym.sym == SDLK_x) // keyup for bullet 2
 				{
 					b2_firing = false;
 				}
@@ -307,6 +321,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		
 		my_ship.move(); // calculate ship's position
 
+		// Firing for player bullet type 1
 		if ((b1_firing == true) && (b1_cooldown < 1))
 		{
 			for (int i = 0; i < B1_SHOTS; i++)
@@ -321,6 +336,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			b1_cooldown = B1_COOLDOWN;
 		}
 
+		// Firing for player bullet type 2
 		if ((b2_firing == true) && (b2_cooldown < 1))
 		{
 			for (int i = 0; i < B2_SHOTS; i++)
@@ -338,15 +354,16 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			b2_cooldown = B2_COOLDOWN;
 		}
 
-		// Update bullet array
+		// Update array for player bullet type 1
 		for (int i = 0; i < B1_SHOTS; i++)
 		{
 			b1[i].update();
+
 			for (int j = 0; j < AS1_MAX; j++)
 			{
 				if (box_collision(b1[i].box, a1[j].box)) // lazy box collision between bullet and asteroid
 				{
-					// Generate debris
+					// Generate debris exploding in an "X" formation
 					for (int k = 0; k < AS1_MAX*4; k++)
 					{
 						if (d1[k].alive == false)
@@ -362,18 +379,34 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					// Destroy asteroid and bullet
 					a1[j].die();
 					b1[i].die();
+					score += 10;
+				}
+			}
+
+			// Collide with enemies
+			for (int j = 0; j < E1_MAX; j++)
+			{
+				if (box_collision(b1[i].box, e1[j].box))
+				{
+					e1[j].die();
+					b1[i].die();
+					score += 100;
+					Mix_PlayChannel(-1, break2, 0);
 				}
 			}
 		}
 		
+
+		// Update array for player bullet type 2
 		for (int i = 0; i < B2_SHOTS; i++)
 		{
 			b2[i].update();
+
 			for (int j = 0; j < AS1_MAX; j++)
 			{
 				if (box_collision(b2[i].box, a1[j].box))
 				{
-					// Generate debris
+					// Generate debris in an "X" formation
 					for (int k = 0; k < AS1_MAX*4; k++)
 					{
 						if (d1[k].alive == false)
@@ -389,17 +422,46 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					// Destroy asteroid and bullet
 					a1[j].die();
 					b2[i].die();
+					score += 10;
+				}
+			}
+
+			// Collide with enemies
+			for (int j = 0; j < E1_MAX; j++)
+			{
+				if (box_collision(b2[i].box, e1[j].box))
+				{
+					e1[j].die();
+					b2[i].die();
+					score += 100;
+					Mix_PlayChannel(-1, break2, 0);
 				}
 			}
 		}
 
+		// Player weapons are cooling
 		b1_cooldown--;
 		b2_cooldown--;
 		
+		// Asteroid collisions
 		for (int i = 0; i < AS1_MAX; i++)
 		{
 			if (box_collision(my_ship.box, a1[i].box)) // lazy box collision between ship and asteroid
 			{
+				// Generate debris in an "X" formation
+				for (int j = 0; j < AS1_MAX*4; j++)
+				{
+					if (d1[j].alive == false)
+					{
+						d1[j].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), 16, 12);
+						d1[j+1].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), -16, 12);
+						d1[j+2].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), 16, -12);
+						d1[j+3].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), -16, -12);
+						Mix_PlayChannel(-1, break1, 0);
+						break;
+					}
+				}
+				// Update ship health and the HUD string
 				my_ship.health -= 10;
 				ss << my_ship.health;
 				HUD_health_txt = "Health = " + ss.str();
@@ -438,6 +500,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			planets_y = 0;
 		}
 		
+		// Apply scrolling backgrounds
 		apply_surface(bg_x, bg_y, background, screen); // show background at current coordinates
 		apply_surface(bg_x, bg_y - background->h, background, screen); // display a copy slightly offset to the original to create the illusion of scrolling
 		
@@ -447,6 +510,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		apply_surface(planets_x, planets_y, planets, screen);
 		apply_surface(planets_x, planets_y - planets->h, planets, screen);
 		
+		// Display player bullets
 		for (int i = 0; i < B1_SHOTS; i++)
 		{
 			b1[i].show(bullet);
@@ -458,22 +522,26 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		
 		my_ship.show(); // display the ship's current position
 		
+		// Update AND display asteroid debris
 		for (int i = 0; i < AS1_MAX*4; i++)
 		{
 			d1[i].update();
 			d1[i].show(debris);
 		}
 		
+		// Update AND display asteroids
 		for (int i = 0; i < AS1_MAX; i++)
 		{
 			a1[i].update();
 			a1[i].show(asteroid);
 		}
 		
+		// Enemies move, fire, display
 		for (int i = 0; i< E1_MAX; i++)
 		{
 			if (e1[i].b3_cooldown < 1)
 			{
+				// Enemy bullets fire downwards
 				for (int j = 0; j < B3_SHOTS; j++)
 				{
 					if (e1[i].b3[j].alive == false)
@@ -485,21 +553,33 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				}
 				e1[i].b3_cooldown = B3_COOLDOWN;
 			}
+			// Update enemy bullets and display
 			for (int j = 0; j < B3_SHOTS; j++)
 			{
 				e1[i].b3[j].update();
 				e1[i].b3[j].show(bullet3);	
 			}
+			// Weapon cools down, enemy moves and is shown on screen
 			e1[i].b3_cooldown--;
 			e1[i].update();
 			e1[i].show(enemy1);
 		}
 		
+		// Apply scrolling foreground layer
 		apply_surface(nebulae_x, nebulae_y, nebulae, screen);
 		apply_surface(nebulae_x, nebulae_y - nebulae->h, nebulae, screen);
 		
+		// Update health display
 		HUD_health = TTF_RenderText_Solid(font1, HUD_health_txt.c_str(), WHITE);
 		apply_surface(5, 5, HUD_health, screen);
+
+		// Update score display
+		ss << score;
+		HUD_score_txt = "Score = " + ss.str();
+		ss.str(string()); // set stream to empty string
+		ss.clear(); // clear fail/EOF flags
+		HUD_score = TTF_RenderText_Solid(font1, HUD_score_txt.c_str(), WHITE);
+		apply_surface(5, 15, HUD_score, screen);
 		
 		// Update the screen, if unable to do so, return 1
 		if( SDL_Flip( screen ) == -1 )
@@ -576,7 +656,7 @@ bool init()
 		return false;
 	}
 	
-	screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE | SDL_FULLSCREEN); // setup screen
+	screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE); // setup screen
 	
 	// If there was an error in setting up the screen, return false
 	if( screen == NULL )
@@ -625,6 +705,7 @@ bool load_files()
 	shot2 = Mix_LoadWAV("snd/pew2.wav");
 	shot3 = Mix_LoadWAV("snd/pew3.wav");
 	break1 = Mix_LoadWAV("snd/break1.wav");
+	break2 = Mix_LoadWAV("snd/break2.wav");
 	font1 = TTF_OpenFont("terminus.ttf", 12);
 	
 	// If any file doesn't load, return false
