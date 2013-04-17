@@ -85,8 +85,8 @@ Mix_Chunk *shot3 = NULL;
 Mix_Chunk *break1 = NULL;
 Mix_Chunk *break2 = NULL;
 
-SDL_Surface *HUD_health;
-SDL_Surface *HUD_score;
+SDL_Surface *HUD_health = NULL;
+SDL_Surface *HUD_score = NULL;
 TTF_Font *font1 = NULL;
 
 //The area of the sprite sheet
@@ -570,6 +570,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		apply_surface(nebulae_x, nebulae_y - nebulae->h, nebulae, screen);
 		
 		// Update health display
+		SDL_FreeSurface(HUD_health); // free surface before reassigning to avoid memory leak
 		HUD_health = TTF_RenderText_Solid(font1, HUD_health_txt.c_str(), WHITE);
 		apply_surface(5, 5, HUD_health, screen);
 
@@ -578,6 +579,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		HUD_score_txt = "Score = " + ss.str();
 		ss.str(string()); // set stream to empty string
 		ss.clear(); // clear fail/EOF flags
+		SDL_FreeSurface(HUD_score);
 		HUD_score = TTF_RenderText_Solid(font1, HUD_score_txt.c_str(), WHITE);
 		apply_surface(5, 15, HUD_score, screen);
 		
@@ -727,6 +729,8 @@ void clean_quit()
 	SDL_FreeSurface(planets);
 	SDL_FreeSurface(nebulae);
 	SDL_FreeSurface(bullet);
+	SDL_FreeSurface(bullet2);
+	SDL_FreeSurface(bullet3);
 	SDL_FreeSurface(debris);
 	SDL_FreeSurface(enemy1);
 	
@@ -735,9 +739,11 @@ void clean_quit()
 	Mix_FreeChunk(shot2);
 	Mix_FreeChunk(shot3);
 	Mix_FreeChunk(break1);
+	Mix_FreeChunk(break2);
 	Mix_CloseAudio(); // close the audio mixer
 
 	SDL_FreeSurface(HUD_health);
+	SDL_FreeSurface(HUD_score);
 	TTF_CloseFont(font1);
 	TTF_Quit();
 	
