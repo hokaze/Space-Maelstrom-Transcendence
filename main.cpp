@@ -105,7 +105,7 @@ class Ship
 	// Initialise the class
 	public:
 	SDL_Rect box;
-	int health;
+	int health; int score;
 	Ship();
 	
 	// Prototype functions
@@ -203,6 +203,8 @@ bool load_files();
 void clean_quit();
 void set_clips();
 bool box_collision(SDL_Rect A, SDL_Rect B);
+void update_health(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
+void update_score(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
 
 
 //////////////////////////////////////////////////////////////////////
@@ -212,28 +214,12 @@ bool box_collision(SDL_Rect A, SDL_Rect B);
 int main(int argc, char* args[]) // standard SDL setup for main()
 {
 	bool quit = false; // quit flag
-	int score = 0;
 	srand(time(NULL)); // initialise random seed
 	
 	int bg_x = 0, bg_y = 0; // offsets used by the scrolling background
 	int stars_x = 0, stars_y = 0, planets_x = 0, planets_y = 0, nebulae_x = 0, nebulae_y = 0;
 	
 	Ship my_ship; // setup the ship
-
-	// Setup HUD for health
-	string HUD_health_txt;
-	stringstream ss;
-	ss << my_ship.health;
-	HUD_health_txt = "Health = " + ss.str();
-	ss.str(string()); // set stream to empty string
-	ss.clear(); // clear fail/EOF flags
-
-	// Setup HUD for score
-	string HUD_score_txt;
-	ss << score;
-	HUD_score_txt = "Score = " + ss.str();
-	ss.str(string());
-	ss.clear();
 
 	Bullet b1[B1_SHOTS]; // setup primitive bullet
 	int b1_cooldown = B1_COOLDOWN;
@@ -379,7 +365,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					// Destroy asteroid and bullet
 					a1[j].die();
 					b1[i].die();
-					score += 10;
+					my_ship.score += 10;
 				}
 			}
 
@@ -390,7 +376,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				{
 					e1[j].die();
 					b1[i].die();
-					score += 100;
+					my_ship.score += 100;
 					Mix_PlayChannel(-1, break2, 0);
 				}
 			}
@@ -422,7 +408,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					// Destroy asteroid and bullet
 					a1[j].die();
 					b2[i].die();
-					score += 10;
+					my_ship.score += 10;
 				}
 			}
 
@@ -433,7 +419,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				{
 					e1[j].die();
 					b2[i].die();
-					score += 100;
+					my_ship.score += 100;
 					Mix_PlayChannel(-1, break2, 0);
 				}
 			}
@@ -463,10 +449,6 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				}
 				// Update ship health and the HUD string
 				my_ship.health -= 10;
-				ss << my_ship.health;
-				HUD_health_txt = "Health = " + ss.str();
-				ss.str(string()); // set stream to empty string
-				ss.clear(); // clear fail/EOF flags
 				a1[i].die();
 			}
 		}
@@ -557,6 +539,11 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			for (int j = 0; j < B3_SHOTS; j++)
 			{
 				e1[i].b3[j].update();
+				if (box_collision(my_ship.box, e1[i].b3[j].box)) // lazy box collision between ship and enemy bullets
+				{
+					e1[i].b3[j].die();
+					my_ship.health -= 5;
+				}
 				e1[i].b3[j].show(bullet3);	
 			}
 			// Weapon cools down, enemy moves and is shown on screen
@@ -569,20 +556,11 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		apply_surface(nebulae_x, nebulae_y, nebulae, screen);
 		apply_surface(nebulae_x, nebulae_y - nebulae->h, nebulae, screen);
 		
-		// Update health display
-		SDL_FreeSurface(HUD_health); // free surface before reassigning to avoid memory leak
-		HUD_health = TTF_RenderText_Solid(font1, HUD_health_txt.c_str(), WHITE);
-		apply_surface(5, 5, HUD_health, screen);
-
-		// Update score display
-		ss << score;
-		HUD_score_txt = "Score = " + ss.str();
-		ss.str(string()); // set stream to empty string
-		ss.clear(); // clear fail/EOF flags
-		SDL_FreeSurface(HUD_score);
-		HUD_score = TTF_RenderText_Solid(font1, HUD_score_txt.c_str(), WHITE);
-		apply_surface(5, 15, HUD_score, screen);
+		// Update HUD
+		update_health(my_ship, HUD_health, screen);
+		update_score(my_ship, HUD_score, screen);
 		
+
 		// Update the screen, if unable to do so, return 1
 		if( SDL_Flip( screen ) == -1 )
 		{
@@ -711,10 +689,10 @@ bool load_files()
 	font1 = TTF_OpenFont("terminus.ttf", 12);
 	
 	// If any file doesn't load, return false
-	if((ship == NULL) || (background == NULL) || (bgm1 == NULL) || (stars == NULL) || (bullet == NULL) || (planets == NULL) || (nebulae == NULL))
-	{
-		return false;
-	}
+	//if((ship == NULL) || (background == NULL) || (bgm1 == NULL) || (stars == NULL) || (bullet == NULL) || (planets == NULL) || (nebulae == NULL))
+	//{
+	//	return false;
+	//}
 	
 	return true; // everything loaded fine
 }
@@ -836,19 +814,44 @@ bool box_collision(SDL_Rect A, SDL_Rect B)
     return true;
 }
 
+// Update the health display of the HUD
+void update_health(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
+{
+	stringstream ss;
+	string HUD_health_txt;
+	ss << player.health;
+	HUD_health_txt = "Health = " + ss.str();
+	ss.str(string()); // set stream to empty string
+	ss.clear(); // clear fail/EOF flags
+	SDL_FreeSurface(HUD); // free surface before reassigning to avoid memory leak
+	HUD_health = TTF_RenderText_Solid(font1, HUD_health_txt.c_str(), WHITE); // draw updated health to HUD surface
+	apply_surface(5, 5, HUD, screen); // draw updated HUD to screen
+}
+
+// Update score display
+void update_score(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
+{
+	stringstream ss;
+	string HUD_score_txt;
+	ss << player.score;
+	HUD_score_txt = "Score = " + ss.str();
+	ss.str(string()); // set stream to empty string
+	ss.clear(); // clear fail/EOF flags
+	SDL_FreeSurface(HUD);
+	HUD_score = TTF_RenderText_Solid(font1, HUD_score_txt.c_str(), WHITE);
+	apply_surface(5, 15, HUD, screen);
+}
 
 // Puts the ship in the bottom-centre
 Ship::Ship()
 {
 	box.x = SCREEN_WIDTH / 2 - SHIP_WIDTH;
 	box.y = SCREEN_HEIGHT / 2 - SHIP_HEIGHT;
-	box.w = SHIP_WIDTH;
-	box.h = SHIP_HEIGHT;
-	x_vel = 0;
-	y_vel = 0;
+	box.w = SHIP_WIDTH; box.h = SHIP_HEIGHT;
+	x_vel = 0; y_vel = 0;
 	frame = 0;
 	frame_up = true;
-	health = 100;
+	health = 100; score = 0;
 }
 
 // Our keyboard input handler, uses switch case to make things a bit tidier than if/else.
@@ -1136,6 +1139,7 @@ void Debris::update()
 		die();
 	}
 	
+	// Alternative horizontal screen wrapping for debris
 	/*if (box.x < (0 - box.w / 2))
 	{
 		box.x = SCREEN_WIDTH - (box.w / 2);
