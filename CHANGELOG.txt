@@ -1,3 +1,8 @@
+# v0.35 #
+Added player weapon cooldown modifier keys (and updated HUD info on cooldowns) to DEBUG MODE.
+Slight tweaks to player bullet array sizes, added currently unused explosion sprite.
+Default FPS changed to 60, the faster pace feels smoother. May revert to 30 if later versions become too intensive for low-end hardware.
+
 # v0.34 #
 Noted: asteroids will still sometimes explode randomly without bullet collision, normally in the bottom-right.
 CHANGELOG.txt added to git repo.

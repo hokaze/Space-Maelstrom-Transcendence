@@ -33,7 +33,7 @@ const int SCREEN_HEIGHT = 480;
 const int SCREEN_BPP = 32;
 bool DEBUG = false;
 bool FULLSCREEN = false;
-int MAX_FPS = 30;
+int MAX_FPS = 60;
 
 // The dimensions of the ship and its weapons
 const int SHIP_WIDTH = 32;
@@ -42,10 +42,10 @@ const int B1_WIDTH = 10;
 const int B1_HEIGHT = 12;
 const int B2_WIDTH = 14;
 const int B2_HEIGHT = 18;
-const int B1_SHOTS = 50;
-const int B1_COOLDOWN = 15;
+const int B1_SHOTS = 30;
+int B1_COOLDOWN = 15;
 const int B2_SHOTS = 80;
-const int B2_COOLDOWN = 30;
+int B2_COOLDOWN = 30;
 
 // Obstacle related stuff
 const int AS1_HEIGHT = 50;
@@ -322,6 +322,22 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					if (event.key.keysym.sym == SDLK_s) // enable bullet 2 autofire
 					{
 						b2_firing = true;
+					}
+					if (event.key.keysym.sym == SDLK_PAGEDOWN) // decrease bullet cooldown
+					{
+						if (B1_COOLDOWN > 1)
+						{
+							B1_COOLDOWN -= 2;
+							B2_COOLDOWN -= 4;
+						}
+					}
+					if (event.key.keysym.sym == SDLK_PAGEUP) // increase bullet cooldown
+					{
+						if (B1_COOLDOWN < 59)
+						{
+							B1_COOLDOWN += 2;
+							B2_COOLDOWN += 4;
+						}
 					}
 				}
 			}
@@ -792,10 +808,10 @@ bool load_files()
 	font1 = TTF_OpenFont("terminus.ttf", 12);
 	
 	// If any file doesn't load, return false
-	//if((ship == NULL) || (background == NULL) || (bgm1 == NULL) || (stars == NULL) || (bullet == NULL) || (planets == NULL) || (nebulae == NULL))
-	//{
-	//	return false;
-	//}
+	if((ship == NULL) || (background == NULL) || (bgm1 == NULL) || (stars == NULL) || (bullet == NULL) || (planets == NULL) || (nebulae == NULL))
+	{
+		return false;
+	}
 	
 	return true; // everything loaded fine
 }
@@ -939,12 +955,18 @@ void update_hud(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
 	
 	if (DEBUG)
 	{
-		string HUD_fps_txt;
+		string HUD_debug_txt;
 		ss << MAX_FPS;
-		HUD_fps_txt = "MAX_FPS : " + ss.str();
+		HUD_debug_txt = "MAX_FPS : " + ss.str();
 		ss.str(string());
-		HUD = TTF_RenderText_Solid(font1, HUD_fps_txt.c_str(), WHITE);
+		HUD = TTF_RenderText_Solid(font1, HUD_debug_txt.c_str(), WHITE);
 		apply_surface(5, 35, HUD, screen);
+		SDL_FreeSurface(HUD);
+		ss << B1_COOLDOWN << ", " << B2_COOLDOWN;
+		HUD_debug_txt = "COOLDOWN: " + ss.str();
+		ss.str(string());
+		HUD = TTF_RenderText_Solid(font1, HUD_debug_txt.c_str(), WHITE);
+		apply_surface(5, 45, HUD, screen);
 		SDL_FreeSurface(HUD);
 	}
 }
