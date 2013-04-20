@@ -31,7 +31,8 @@ using namespace std;
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
 const int SCREEN_BPP = 32;
-const int MAX_FPS = 30;
+bool DEBUG = true;
+int MAX_FPS = 30;
 
 // The dimensions of the ship and its weapons
 const int SHIP_WIDTH = 32;
@@ -87,6 +88,7 @@ Mix_Chunk *break2 = NULL;
 
 SDL_Surface *HUD_health = NULL;
 SDL_Surface *HUD_score = NULL;
+SDL_Surface *HUD_fps = NULL;
 TTF_Font *font1 = NULL;
 
 //The area of the sprite sheet
@@ -205,6 +207,7 @@ void set_clips();
 bool box_collision(SDL_Rect A, SDL_Rect B);
 void update_health(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
 void update_score(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
+void update_fps(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
 
 
 //////////////////////////////////////////////////////////////////////
@@ -283,6 +286,32 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				if (event.key.keysym.sym == SDLK_x) // keydown for bullet 2
 				{
 					b2_firing = true;
+				}
+				// DEBUG MODE CODE - Control gamestate with keycodes
+				if (DEBUG)
+				{
+					if (event.key.keysym.sym == SDLK_KP_PLUS) // increment framerate on keypad + press
+					{
+						if (MAX_FPS < 300)
+						{
+							MAX_FPS += 10;
+						}
+					}
+					if (event.key.keysym.sym == SDLK_KP_MINUS) // decrement framerate on keypad - press
+					{
+						if (MAX_FPS > 10)
+						{
+							MAX_FPS -= 10;
+						}
+					}
+					if (event.key.keysym.sym == SDLK_a) // enable bullet 1 autofire
+					{
+						b1_firing = true;
+					}
+					if (event.key.keysym.sym == SDLK_s) // enable bullet 2 autofire
+					{
+						b2_firing = true;
+					}
 				}
 			}
 
@@ -559,6 +588,10 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		// Update HUD
 		update_health(my_ship, HUD_health, screen);
 		update_score(my_ship, HUD_score, screen);
+		if (DEBUG)
+		{
+			update_fps(my_ship, HUD_fps, screen);
+		}
 		
 
 		// Update the screen, if unable to do so, return 1
@@ -814,6 +847,19 @@ bool box_collision(SDL_Rect A, SDL_Rect B)
     return true;
 }
 
+void update_fps(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
+{
+	stringstream ss;
+	string HUD_fps_txt;
+	ss << MAX_FPS;
+	HUD_fps_txt = "MAX_FPS: " + ss.str();
+	ss.str(string());
+	ss.clear();
+	HUD = TTF_RenderText_Solid(font1, HUD_fps_txt.c_str(), WHITE);
+	apply_surface(5, 35, HUD, screen);
+	SDL_FreeSurface(HUD);
+}
+
 // Update the health display of the HUD
 void update_health(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
 {
@@ -823,9 +869,9 @@ void update_health(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
 	HUD_health_txt = "Health = " + ss.str();
 	ss.str(string()); // set stream to empty string
 	ss.clear(); // clear fail/EOF flags
-	SDL_FreeSurface(HUD); // free surface before reassigning to avoid memory leak
-	HUD_health = TTF_RenderText_Solid(font1, HUD_health_txt.c_str(), WHITE); // draw updated health to HUD surface
+	HUD = TTF_RenderText_Solid(font1, HUD_health_txt.c_str(), WHITE); // draw updated health to HUD surface
 	apply_surface(5, 5, HUD, screen); // draw updated HUD to screen
+	SDL_FreeSurface(HUD); // free surface before reassigning to avoid memory leak
 }
 
 // Update score display
@@ -837,9 +883,9 @@ void update_score(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
 	HUD_score_txt = "Score = " + ss.str();
 	ss.str(string()); // set stream to empty string
 	ss.clear(); // clear fail/EOF flags
-	SDL_FreeSurface(HUD);
-	HUD_score = TTF_RenderText_Solid(font1, HUD_score_txt.c_str(), WHITE);
+	HUD = TTF_RenderText_Solid(font1, HUD_score_txt.c_str(), WHITE);
 	apply_surface(5, 15, HUD, screen);
+	SDL_FreeSurface(HUD); // free surface before reassigning to avoid memory leak
 }
 
 // Puts the ship in the bottom-centre
@@ -1057,7 +1103,7 @@ void Asteroid::spawn()
 	alive = true;
 	box.x = rand() % SCREEN_WIDTH; 
 	box.y = rand() % 100 - SCREEN_HEIGHT; 
-	xv = rand() % 4 - 2;
+	xv = rand() % 6 - 3;
 	yv = rand() % 4 + 1;
 }
 
