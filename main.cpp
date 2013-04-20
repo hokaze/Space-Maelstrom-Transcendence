@@ -31,7 +31,8 @@ using namespace std;
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
 const int SCREEN_BPP = 32;
-bool DEBUG = true;
+bool DEBUG = false;
+bool FULLSCREEN = false;
 int MAX_FPS = 30;
 
 // The dimensions of the ship and its weapons
@@ -215,7 +216,20 @@ void update_fps(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
 //////////////////////////////////////////////////////////////////////
 
 int main(int argc, char* args[]) // standard SDL setup for main()
-{
+{	
+	// Check command-line arguments
+	for (int i = 0; i < argc; i++)
+	{
+		if ((string(args[i]) == "-fullscreen") || (string(args[i]) == "-f"))
+		{
+			FULLSCREEN = true;
+		}
+		else if ((string(args[i]) == "-debug") || (string(args[i]) == "-d"))
+		{
+			DEBUG = true;
+		}
+	}
+	
 	bool quit = false; // quit flag
 	srand(time(NULL)); // initialise random seed
 	
@@ -669,7 +683,14 @@ bool init()
 		return false;
 	}
 	
-	screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE); // setup screen
+	if (FULLSCREEN)
+	{
+		screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE | SDL_FULLSCREEN);
+	}
+	else
+	{
+		screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE);
+	}
 	
 	// If there was an error in setting up the screen, return false
 	if( screen == NULL )
