@@ -1,0 +1,103 @@
+# v0.34 #
+Noted: asteroids will still sometimes explode randomly without bullet collision, normally in the bottom-right.
+CHANGELOG.txt added to git repo.
+
+# v0.33 #
+Tweaked debris generation to be slower, directed away from the player and inherit SOME asteroid inertia.
+Vanishing debris bug at lower speeds is reduced but not entirely eliminated.
+Stationary debris problem fixed.
+
+# v0.32 #
+Merged HUD update drawing functions together, now uses one surface.
+linux32 and linux64 builds.
+
+# v0.31 #
+Added command line flag support.
+DEBUG and FULLSCREEN modes now togglable on command line.
+
+# v0.30 #
+Updated HUD drawing functions to be slightly nicer.
+Noted: earlier win32 memory leak does not occur on linux32 or linux64 builds even with fix applied.
+New memory leak found that occurs at roughly the half-way point through BG scrolling fixed.
+Added DEBUG MODE.
+
+# v0.29 #
+Some code cleanup, collisions with enemy bullets now implemented
+
+# v0.28 #
+Updated linux32, linux64 and raspberry builds.
+
+# v0.27 #
+Fixed memory leak on win32 as a result of TTF rendering. Uses a horrible hack with SDL_FreeSurface, is there a better way?
+
+# v0.26 #
+Added score system!
+Enemies die fromy your bullets, asteroids/enemies grant points, added sound effect for enemy death (but no gfx yet)
+
+# v0.25 #
+Enemies now spawn and re-spawn like Asteroid objects. Spawn patterns tweaked to reduce clustering for both.
+There appears to be a memory leak somewhere?
+
+# v0.24 #
+Enemy bullets now display and update correctly, slight rearrangement of enemy/bullet code.
+Optimised win32 builds now use Release instead of Debug in VS.
+
+# v0.23 #
+Updated clean_up function to account for new surfaces and audio, should prevent memory leaks.
+Updated win32 build. 
+
+# v0.22 #
+Updated win32 build, slight code tweaks.
+
+# v0.21 #
+First enemy in-game, no collisions between it, player, asteroids or bullets yet.
+Enemy fires, makes its own firing noise but bullets don't display...?
+
+# v0.20 #
+Fixed rapid-fire bug.
+Slight tweak to debris code.
+Fixed earlier commit.
+
+# v0.19 #
+Added very basic debris generation upon asteroid destruction. Asteroids play break noise on destruction.
+Updated linux32 and linux64 builds.
+
+# v0.18 #
+Collision detection bugs between bullets and asteroids fixed.
+Updated win32 build.
+
+# v0.16 #
+New build supported: Raspberry Pi (ARM11 linux), builds for this platform WILL lag behind PC builds and aren't fully tested.
+
+# v0.15 #
+Fixed missing files on some commits.
+Bullet code tweaked to fix some bugs, two bullet types implemented.
+Multiple asteroids, have movement, some buggy collision with bullets and de/re-spawn.
+Health system!
+
+# v0.12 #
+New sound effects added, mostly unused currently. LICENSE updated to include details for artistic assets.
+
+# v0.11 #
+New build supported: linux32 (x86), both x86 and x86_64 linux builds uploaded.
+
+# v0.1 #
+Added git repo, Simple Motion Test now used for first year C++ programming project, renamed Space Maelstrom Transcendence.
+Added README.txt and LICENSE.txt. Unused artwork added.
+Slight bullet tweaks, added sound effects.
+
+# v0.05 #
+Background scrolling tweaks, music playback solved (problem with DLLs on Windows release and some library path problems with Visual Studio).
+Primitive bullet added, buggy but fires.
+
+# v0.04 #
+Some code cleanup, background scrolling split into layers, ogg music added with SDL_mixer. Works on Linux, not on Windows?
+
+# v0.03 #
+First large scrolling background implemented.
+
+# v0.02 #
+Player movement is constrained vertically and wraps horizonatally. Diagonal speed bug deemed a feature.
+
+# v0.01 #
+Simple Motion Test file made, draws a simple background to screen and a movable player sprite. A hackspace of sorts to learn SDL in and nothing more.
