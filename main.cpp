@@ -152,9 +152,10 @@ class Bullet
 // Basic obstacle, respawns when it passes bottom of screen or dies
 class Asteroid
 {
-	int xv, yv;
+	//int xv, yv;
 	
 	public:
+	int xv, yv;
 	SDL_Rect box;
 	bool alive;
 	Asteroid();
@@ -388,19 +389,36 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			{
 				if (box_collision(b1[i].box, a1[j].box)) // lazy box collision between bullet and asteroid
 				{
+					int debris_spawned = 0;
 					// Generate debris exploding in an "X" formation
 					for (int k = 0; k < AS1_MAX*4; k++)
 					{
 						if (d1[k].alive == false)
 						{
-							d1[k].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), 16, 12);
-							d1[k+1].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), -16, 12);
-							d1[k+2].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), 16, -12);
-							d1[k+3].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), -16, -12);
-							Mix_PlayChannel(-1, break1, 0);
-							break;
+							if (debris_spawned == 0)
+							{
+								d1[k].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv+3, a1[j].yv-5);
+							}
+							else if (debris_spawned == 1)
+							{
+								d1[k+1].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv-3, a1[j].yv-5);
+							}
+							else if (debris_spawned == 2)
+							{
+								d1[k+2].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv+3, a1[j].yv-10);
+							}
+							else if (debris_spawned == 3)
+							{
+								d1[k+3].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv-3, a1[j].yv-10);
+							}
+							else
+							{
+								break;
+							}
+							debris_spawned++;
 						}
 					}
+					Mix_PlayChannel(-1, break1, 0);
 					// Destroy asteroid and bullet
 					a1[j].die();
 					b1[i].die();
@@ -431,19 +449,36 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			{
 				if (box_collision(b2[i].box, a1[j].box))
 				{
-					// Generate debris in an "X" formation
+					int debris_spawned = 0;
+					// Generate debris exploding in an "X" formation
 					for (int k = 0; k < AS1_MAX*4; k++)
 					{
 						if (d1[k].alive == false)
 						{
-							d1[k].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), 16, 12);
-							d1[k+1].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), -16, 12);
-							d1[k+2].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), 16, -12);
-							d1[k+3].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), -16, -12);
-							Mix_PlayChannel(-1, break1, 0);
-							break;
+							if (debris_spawned == 0)
+							{
+								d1[k].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv+3, a1[j].yv-5);
+							}
+							else if (debris_spawned == 1)
+							{
+								d1[k+1].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv-3, a1[j].yv-5);
+							}
+							else if (debris_spawned == 2)
+							{
+								d1[k+2].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv+3, a1[j].yv-10);
+							}
+							else if (debris_spawned == 3)
+							{
+								d1[k+3].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv-3, a1[j].yv-10);
+							}
+							else
+							{
+								break;
+							}
+							debris_spawned++;
 						}
 					}
+					Mix_PlayChannel(-1, break1, 0);
 					// Destroy asteroid and bullet
 					a1[j].die();
 					b2[i].die();
@@ -473,19 +508,36 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		{
 			if (box_collision(my_ship.box, a1[i].box)) // lazy box collision between ship and asteroid
 			{
-				// Generate debris in an "X" formation
+				int debris_spawned = 0;
+				// Generate debris exploding in an "X" formation
 				for (int j = 0; j < AS1_MAX*4; j++)
 				{
 					if (d1[j].alive == false)
 					{
-						d1[j].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), 16, 12);
-						d1[j+1].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), -16, 12);
-						d1[j+2].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), 16, -12);
-						d1[j+3].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), -16, -12);
-						Mix_PlayChannel(-1, break1, 0);
-						break;
+						if (debris_spawned == 0)
+						{
+							d1[j].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), a1[i].xv+3, a1[i].yv-5);
+						}
+						else if (debris_spawned == 1)
+						{
+							d1[j+1].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), a1[i].xv-3, a1[i].yv-5);
+						}
+						else if (debris_spawned == 2)
+						{
+							d1[j+2].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), a1[i].xv+3, a1[i].yv-10);
+						}
+						else if (debris_spawned == 3)
+						{
+							d1[j+3].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), a1[i].xv-3, a1[i].yv-10);
+						}
+						else
+						{
+							break;
+						}
+						debris_spawned++;
 					}
 				}
+				Mix_PlayChannel(-1, break1, 0);
 				// Update ship health and the HUD string
 				my_ship.health -= 10;
 				a1[i].die();
