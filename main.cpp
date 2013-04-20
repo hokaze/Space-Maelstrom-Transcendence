@@ -87,9 +87,7 @@ Mix_Chunk *shot3 = NULL;
 Mix_Chunk *break1 = NULL;
 Mix_Chunk *break2 = NULL;
 
-SDL_Surface *HUD_health = NULL;
-SDL_Surface *HUD_score = NULL;
-SDL_Surface *HUD_fps = NULL;
+SDL_Surface *HUD_display = NULL;
 TTF_Font *font1 = NULL;
 
 //The area of the sprite sheet
@@ -206,9 +204,7 @@ bool load_files();
 void clean_quit();
 void set_clips();
 bool box_collision(SDL_Rect A, SDL_Rect B);
-void update_health(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
-void update_score(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
-void update_fps(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
+void update_hud(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
 
 
 //////////////////////////////////////////////////////////////////////
@@ -600,12 +596,13 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		apply_surface(nebulae_x, nebulae_y - nebulae->h, nebulae, screen);
 		
 		// Update HUD
-		update_health(my_ship, HUD_health, screen);
+		/*update_health(my_ship, HUD_health, screen);
 		update_score(my_ship, HUD_score, screen);
 		if (DEBUG)
 		{
 			update_fps(my_ship, HUD_fps, screen);
-		}
+		}*/
+		update_hud(my_ship, HUD_display, screen);
 		
 
 		// Update the screen, if unable to do so, return 1
@@ -773,9 +770,8 @@ void clean_quit()
 	Mix_FreeChunk(break1);
 	Mix_FreeChunk(break2);
 	Mix_CloseAudio(); // close the audio mixer
-
-	SDL_FreeSurface(HUD_health);
-	SDL_FreeSurface(HUD_score);
+	
+	SDL_FreeSurface(HUD_display);
 	TTF_CloseFont(font1);
 	TTF_Quit();
 	
@@ -868,45 +864,37 @@ bool box_collision(SDL_Rect A, SDL_Rect B)
     return true;
 }
 
-void update_fps(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
-{
-	stringstream ss;
-	string HUD_fps_txt;
-	ss << MAX_FPS;
-	HUD_fps_txt = "MAX_FPS: " + ss.str();
-	ss.str(string());
-	ss.clear();
-	HUD = TTF_RenderText_Solid(font1, HUD_fps_txt.c_str(), WHITE);
-	apply_surface(5, 35, HUD, screen);
-	SDL_FreeSurface(HUD);
-}
-
-// Update the health display of the HUD
-void update_health(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
+// Updates the HUD with Health, Score and Debug information
+void update_hud(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
 {
 	stringstream ss;
 	string HUD_health_txt;
+	string HUD_score_txt;
+	
 	ss << player.health;
 	HUD_health_txt = "Health = " + ss.str();
-	ss.str(string()); // set stream to empty string
-	ss.clear(); // clear fail/EOF flags
-	HUD = TTF_RenderText_Solid(font1, HUD_health_txt.c_str(), WHITE); // draw updated health to HUD surface
-	apply_surface(5, 5, HUD, screen); // draw updated HUD to screen
-	SDL_FreeSurface(HUD); // free surface before reassigning to avoid memory leak
-}
-
-// Update score display
-void update_score(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
-{
-	stringstream ss;
-	string HUD_score_txt;
+	ss.str(string());
 	ss << player.score;
 	HUD_score_txt = "Score = " + ss.str();
-	ss.str(string()); // set stream to empty string
-	ss.clear(); // clear fail/EOF flags
+	ss.str(string());
+	
+	HUD = TTF_RenderText_Solid(font1, HUD_health_txt.c_str(), WHITE);
+	apply_surface(5, 5, HUD, screen);
+	SDL_FreeSurface(HUD);
 	HUD = TTF_RenderText_Solid(font1, HUD_score_txt.c_str(), WHITE);
 	apply_surface(5, 15, HUD, screen);
-	SDL_FreeSurface(HUD); // free surface before reassigning to avoid memory leak
+	SDL_FreeSurface(HUD);
+	
+	if (DEBUG)
+	{
+		string HUD_fps_txt;
+		ss << MAX_FPS;
+		HUD_fps_txt = "MAX_FPS : " + ss.str();
+		ss.str(string());
+		HUD = TTF_RenderText_Solid(font1, HUD_fps_txt.c_str(), WHITE);
+		apply_surface(5, 35, HUD, screen);
+		SDL_FreeSurface(HUD);
+	}
 }
 
 // Puts the ship in the bottom-centre
