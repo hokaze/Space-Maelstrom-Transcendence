@@ -40,17 +40,21 @@ const int SHIP_WIDTH = 32;
 const int SHIP_HEIGHT = 32;
 const int B1_WIDTH = 10;
 const int B1_HEIGHT = 12;
-const int B2_WIDTH = 14;
-const int B2_HEIGHT = 18;
 const int B1_SHOTS = 30;
 int B1_COOLDOWN = 15;
+const int B1_ATTACK = 10;
+const int B2_WIDTH = 14;
+const int B2_HEIGHT = 18;
 const int B2_SHOTS = 80;
 int B2_COOLDOWN = 30;
+const int B2_ATTACK = 5;
 
 // Obstacle related stuff
 const int AS1_HEIGHT = 50;
 const int AS1_WIDTH = 50;
 const int AS1_MAX = 20;
+const int AS1_HP = 5;
+const int AS1_ATTACK = 10;
 const int D1_HEIGHT = 20;
 const int D1_WIDTH = 20;
 
@@ -58,10 +62,13 @@ const int D1_WIDTH = 20;
 const int E1_HEIGHT = 30;
 const int E1_WIDTH = 26;
 const int E1_MAX = 10;
+const int E1_HP = 10;
+const int E1_ATTACK = 5;
 const int B3_WIDTH = 8;
 const int B3_HEIGHT = 12;
 const int B3_SHOTS = 4;
 const int B3_COOLDOWN = 60;
+const int B3_ATTACK = 5;
 
 // Setup surfaces, event system and BGM
 SDL_Surface *ship = NULL;
@@ -106,13 +113,14 @@ class Ship
 	// Initialise the class
 	public:
 	SDL_Rect box;
-	int health; int score;
+	int hp; int score; int attack;
 	Ship();
 	
 	// Prototype functions
 	void handle_input(); // use keypresses to adjust velocity
 	void move(); // actually move the ship (and check the bounds of the screen)
 	void show(); // blit to screen
+	void damage(int attack);
 };
 
 // The timer - used for capping fps and could be adapted to give certain objects
@@ -141,27 +149,33 @@ class Bullet
 	
 	public:
 	SDL_Rect box;
+	SDL_Surface *sprite;
 	bool alive;
+	int attack;
 	Bullet();
+	void setup(int damage, SDL_Surface* bullet_surface);
 	void update();
 	void fire(int start_x, int start_y, int x_speed, int y_speed, int width, int height);
-	void show(SDL_Surface* bullet_surface);
+	void show();
 	void die();
 };
 
 // Basic obstacle, respawns when it passes bottom of screen or dies
 class Asteroid
 {
-	//int xv, yv;
+	int hp;
 	
 	public:
 	int xv, yv;
+	int attack;
 	SDL_Rect box;
+	SDL_Surface *sprite;
 	bool alive;
 	Asteroid();
 	void spawn();
 	void update();
-	void show(SDL_Surface* asteroid_surface);
+	void show();
+	void damage(int attack);
 	void die(bool respawn = true);
 };
 
@@ -172,11 +186,12 @@ class Debris
 	
 	public:
 	SDL_Rect box;
+	SDL_Surface* sprite;
 	bool alive;
 	Debris();
 	void spawn(int start_x, int start_y, int x_speed, int y_speed);
 	void update();
-	void show(SDL_Surface* debris_surface);
+	void show();
 	void die();
 };
 
@@ -184,16 +199,19 @@ class Debris
 class Enemy
 {
 	int xv, yv;
+	int hp;
 	
 	public:
-	int b3_cooldown;
+	int b3_cooldown; int attack;
 	SDL_Rect box;
+	SDL_Surface *sprite;
 	Bullet b3[B3_SHOTS];
 	bool alive;
 	Enemy();
 	void spawn();
 	void update();
-	void show(SDL_Surface* enemy_surface);
+	void show();
+	void damage(int attack);
 	void die();
 };
 
@@ -227,6 +245,18 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		}
 	}
 	
+	// Initialise everything
+	if( init() == false )
+	{
+		return 1;
+	}
+	
+	// Load the images and any audio
+	if( load_files() == false )
+	{
+		return 1;
+	}
+	
 	bool quit = false; // quit flag
 	srand(time(NULL)); // initialise random seed
 	
@@ -236,16 +266,32 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	Ship my_ship; // setup the ship
 
 	Bullet b1[B1_SHOTS]; // setup primitive bullet
+	for (int i = 0; i < B1_SHOTS; i++)
+	{
+		b1[i].setup(B1_ATTACK, bullet);
+	}
 	int b1_cooldown = B1_COOLDOWN;
 	bool b1_firing = false;
 
 	Bullet b2[B2_SHOTS];
+	for (int i = 0; i < B2_SHOTS; i++)
+	{
+		b2[i].setup(B2_ATTACK, bullet2);
+	}
 	int b2_cooldown = B2_COOLDOWN;
 	bool b2_firing = false;
 
 	Asteroid a1[AS1_MAX];
 	Debris d1[AS1_MAX*4];
+	
 	Enemy e1[E1_MAX];
+	for (int i = 0; i < E1_MAX; i++)
+	{
+		for (int j = 0; j < B3_SHOTS; j++)
+		{
+			e1[i].b3[j].setup(B3_ATTACK, bullet3);
+		}
+	}
 	
 	for (int i = 0; i < AS1_MAX; i++)
 	{
@@ -259,18 +305,6 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 
 	set_clips();
 	Timer fps; // frame rate regulator
-	
-	// Initialise everything
-	if( init() == false )
-	{
-		return 1;
-	}
-	
-	// Load the images and any audio
-	if( load_files() == false )
-	{
-		return 1;
-	}
 	
 	// Attempt to play the music on loop
 	if (Mix_PlayMusic(bgm1, -1) == -1)
@@ -436,7 +470,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					}
 					Mix_PlayChannel(-1, break1, 0);
 					// Destroy asteroid and bullet
-					a1[j].die();
+					a1[j].damage(b1[i].attack);
 					b1[i].die();
 					my_ship.score += 10;
 				}
@@ -447,7 +481,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			{
 				if (box_collision(b1[i].box, e1[j].box))
 				{
-					e1[j].die();
+					e1[j].damage(b1[i].attack);
 					b1[i].die();
 					my_ship.score += 100;
 					Mix_PlayChannel(-1, break2, 0);
@@ -496,7 +530,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					}
 					Mix_PlayChannel(-1, break1, 0);
 					// Destroy asteroid and bullet
-					a1[j].die();
+					a1[j].damage(b2[i].attack);
 					b2[i].die();
 					my_ship.score += 10;
 				}
@@ -507,7 +541,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			{
 				if (box_collision(b2[i].box, e1[j].box))
 				{
-					e1[j].die();
+					e1[j].damage(b2[i].attack);
 					b2[i].die();
 					my_ship.score += 100;
 					Mix_PlayChannel(-1, break2, 0);
@@ -555,7 +589,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				}
 				Mix_PlayChannel(-1, break1, 0);
 				// Update ship health and the HUD string
-				my_ship.health -= 10;
+				my_ship.damage(a1[i].attack);
 				a1[i].die();
 			}
 		}
@@ -602,11 +636,11 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		// Display player bullets
 		for (int i = 0; i < B1_SHOTS; i++)
 		{
-			b1[i].show(bullet);
+			b1[i].show();
 		}
 		for (int i = 0; i < B2_SHOTS; i++)
 		{
-			b2[i].show(bullet2);
+			b2[i].show();
 		}
 		
 		my_ship.show(); // display the ship's current position
@@ -615,14 +649,14 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		for (int i = 0; i < AS1_MAX*4; i++)
 		{
 			d1[i].update();
-			d1[i].show(debris);
+			d1[i].show();
 		}
 		
 		// Update AND display asteroids
 		for (int i = 0; i < AS1_MAX; i++)
 		{
 			a1[i].update();
-			a1[i].show(asteroid);
+			a1[i].show();
 		}
 		
 		// Enemies move, fire, display
@@ -649,14 +683,19 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				if (box_collision(my_ship.box, e1[i].b3[j].box)) // lazy box collision between ship and enemy bullets
 				{
 					e1[i].b3[j].die();
-					my_ship.health -= 5;
+					my_ship.damage(e1[i].b3[j].attack);
 				}
-				e1[i].b3[j].show(bullet3);	
+				e1[i].b3[j].show();	
 			}
-			// Weapon cools down, enemy moves and is shown on screen
+			// Weapon cools down, enemy moves, check for collision with player, then display
 			e1[i].b3_cooldown--;
 			e1[i].update();
-			e1[i].show(enemy1);
+			if (box_collision(my_ship.box, e1[i].box))
+			{
+				my_ship.damage(e1[i].attack);
+				e1[i].damage(my_ship.attack);
+			}
+			e1[i].show();
 		}
 		
 		// Apply scrolling foreground layer
@@ -939,7 +978,7 @@ void update_hud(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
 	string HUD_health_txt;
 	string HUD_score_txt;
 	
-	ss << player.health;
+	ss << player.hp;
 	HUD_health_txt = "Health = " + ss.str();
 	ss.str(string());
 	ss << player.score;
@@ -980,7 +1019,7 @@ Ship::Ship()
 	x_vel = 0; y_vel = 0;
 	frame = 0;
 	frame_up = true;
-	health = 100; score = 0;
+	hp = 100; score = 0; attack = 10;
 }
 
 // Our keyboard input handler, uses switch case to make things a bit tidier than if/else.
@@ -1026,7 +1065,19 @@ void Ship::handle_input()
 // screen.
 void Ship::move()
 {
-	box.x += x_vel; // x coordinate movement
+	// If we are moving in both directions (i.e. diagonally) halves the speed to balance
+	// the bug/feature of diagonal movement being faster.
+	if ((x_vel != 0) && (y_vel != 0))
+	{
+		box.x += x_vel / 2;
+		box.y += y_vel / 2;
+	}
+	
+	else
+	{
+		box.x += x_vel; // x coordinate movement
+		box.y += y_vel; // y coordinate movement
+	}
 	
 	// If the ship went too far to the left or right
 	// we wrap it around to the other side
@@ -1039,14 +1090,17 @@ void Ship::move()
 		box.x = 0 - (SHIP_WIDTH / 4);
 	}
 	
-	box.y += y_vel; // y coordinate movement
-	
 	// If the ship went too far up or down
 	// we shift it back into place
 	if(( box.y < 0 ) || ( box.y + SHIP_HEIGHT > SCREEN_HEIGHT ))
 	{
 		box.y -= y_vel;
 	}
+}
+
+void Ship::damage(int attack)
+{
+	hp -= attack;
 }
 
 
@@ -1123,6 +1177,14 @@ Bullet::Bullet()
 {
 	alive = false;
 	box.x = -400; box.y = 400; xv = 0; yv = 0, box.w = 0, box.h = 0;
+	attack = 0;
+	sprite = NULL;
+}
+
+void Bullet::setup(int damage, SDL_Surface* bullet_surface)
+{
+	attack = damage;
+	sprite = bullet_surface;
 }
 
 void Bullet::update()
@@ -1159,11 +1221,11 @@ void Bullet::fire(int start_x, int start_y, int x_speed, int y_speed, int width,
 	box.h = height;
 }
 
-void Bullet::show(SDL_Surface* bullet_surface)
+void Bullet::show()
 {
 	if (alive)
 	{
-		apply_surface(box.x, box.y, bullet_surface, screen);
+		apply_surface(box.x, box.y, sprite, screen);
 	}
 }
 
@@ -1179,6 +1241,8 @@ Asteroid::Asteroid()
 	alive = false;
 	box.x = -200; box.y = 200; xv = 0; yv = 0;
 	box.w= AS1_WIDTH; box.h = AS1_HEIGHT;
+	hp = AS1_HP; attack = AS1_ATTACK;
+	sprite = asteroid;
 }
 
 void Asteroid::spawn()
@@ -1214,11 +1278,20 @@ void Asteroid::update()
 
 }
 
-void Asteroid::show(SDL_Surface* asteroid_surface)
+void Asteroid::show()
 {
 	if (alive)
 	{
-		apply_surface(box.x, box.y, asteroid_surface, screen);
+		apply_surface(box.x, box.y, sprite, screen);
+	}
+}
+
+void Asteroid::damage(int attack)
+{
+	hp -= attack;
+	if (hp < 1)
+	{
+		die();
 	}
 }
 
@@ -1239,6 +1312,7 @@ Debris::Debris()
 	alive = false;
 	box.x = -500; box.y = 500; xv = 0; yv = 0;
 	box.w= D1_WIDTH; box.h = D1_HEIGHT;
+	sprite = debris;
 }
 
 void Debris::spawn(int start_x, int start_y, int x_speed, int y_speed)
@@ -1280,11 +1354,11 @@ void Debris::update()
 
 }
 
-void Debris::show(SDL_Surface* debris_surface)
+void Debris::show()
 {
 	if (alive)
 	{
-		apply_surface(box.x, box.y, debris_surface, screen);
+		apply_surface(box.x, box.y, sprite, screen);
 	}
 }
 
@@ -1301,6 +1375,8 @@ Enemy::Enemy()
 	box.x = -1000; box.y = 1000; xv = 0; yv = 0;
 	box.w= E1_WIDTH; box.h = E1_HEIGHT;
 	b3_cooldown = B3_COOLDOWN + rand() % 300;
+	hp = E1_HP; attack = E1_ATTACK;
+	sprite = enemy1;
 }
 
 void Enemy::spawn()
@@ -1325,11 +1401,20 @@ void Enemy::update()
 	}
 }
 
-void Enemy::show(SDL_Surface* enemy_surface)
+void Enemy::show()
 {
 	if (alive)
 	{
-		apply_surface(box.x, box.y, enemy_surface, screen);
+		apply_surface(box.x, box.y, sprite, screen);
+	}
+}
+
+void Enemy::damage(int attack)
+{
+	hp -= attack;
+	if (hp < 1)
+	{
+		die();
 	}
 }
 

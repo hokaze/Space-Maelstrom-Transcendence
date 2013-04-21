@@ -1,3 +1,9 @@
+# v0.36 #
+Objects now can be damaged and have their own attack values rather than dying after single hits or modifying player hp directly.
+Collisions between player and enemy ships implemented.
+Objects now know what sprite represents them, no need to remind them on every .show() call anymore.
+Faster diagonal movement feature/bug fixed, diagonal movement is now the same as a single direction rather than 2x speed.
+
 # v0.35 #
 Added player weapon cooldown modifier keys (and updated HUD info on cooldowns) to DEBUG MODE.
 Slight tweaks to player bullet array sizes, added currently unused explosion sprite.
