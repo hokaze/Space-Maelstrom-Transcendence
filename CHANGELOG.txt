@@ -1,3 +1,6 @@
+# v0.37 #
+Enemies now show an explosion sprite for 0.25 seconds after death, updated win32 build
+
 # v0.36 #
 Objects now can be damaged and have their own attack values rather than dying after single hits or modifying player hp directly.
 Collisions between player and enemy ships implemented.

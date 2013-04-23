@@ -31,8 +31,8 @@ using namespace std;
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
 const int SCREEN_BPP = 32;
-bool DEBUG = false;
-bool FULLSCREEN = false;
+bool DEBUG = true;
+bool FULLSCREEN = true;
 int MAX_FPS = 60;
 
 // The dimensions of the ship and its weapons
@@ -64,6 +64,7 @@ const int E1_WIDTH = 26;
 const int E1_MAX = 10;
 const int E1_HP = 10;
 const int E1_ATTACK = 5;
+const int E1_EXPLODE_TIME = MAX_FPS / 4;
 const int B3_WIDTH = 8;
 const int B3_HEIGHT = 12;
 const int B3_SHOTS = 4;
@@ -78,6 +79,7 @@ SDL_Surface *bullet3 = NULL;
 SDL_Surface *asteroid = NULL;
 SDL_Surface *debris = NULL;
 SDL_Surface *enemy1 = NULL;
+SDL_Surface *boom1 = NULL;
 SDL_Surface *background = NULL;
 SDL_Surface *stars = NULL;
 SDL_Surface *planets = NULL;
@@ -203,8 +205,11 @@ class Enemy
 	
 	public:
 	int b3_cooldown; int attack;
+	int explosion_x; int explosion_y;
+	int explosion_timer;
 	SDL_Rect box;
 	SDL_Surface *sprite;
+	SDL_Surface *explosion;
 	Bullet b3[B3_SHOTS];
 	bool alive;
 	Enemy();
@@ -832,6 +837,7 @@ bool load_files()
 	bullet2 = load_image("img/pew2.png");
 	bullet3 = load_image("img/pew3.png");
 	asteroid = load_image("img/asteroid1.png");
+	boom1 = load_image("img/boom1.png");
 	debris = load_image("img/asteroid1_debris.png");
 	enemy1 = load_image("img/enemy1.png");
 	background = load_image("img/distant_bg.png");
@@ -869,6 +875,7 @@ void clean_quit()
 	SDL_FreeSurface(bullet3);
 	SDL_FreeSurface(debris);
 	SDL_FreeSurface(enemy1);
+	SDL_FreeSurface(boom1);
 	
 	Mix_FreeMusic(bgm1); // free the audio stream
 	Mix_FreeChunk(shot1);
@@ -1195,7 +1202,7 @@ void Bullet::update()
 		box.y += yv;
 	}
 	
-	if((box.y < 0) || (box.y + box.h > SCREEN_HEIGHT))
+	if ((box.y < 0) || (box.y + box.h > SCREEN_HEIGHT))
 	{
 		die();
 	}
@@ -1262,7 +1269,7 @@ void Asteroid::update()
 		box.y += yv;
 	}
 	
-	if((box.y > SCREEN_HEIGHT))
+	if ((box.y > SCREEN_HEIGHT))
 	{
 		die();
 	}
@@ -1332,12 +1339,12 @@ void Debris::update()
 		box.y += yv;
 	}
 	
-	if((box.y > SCREEN_HEIGHT) || (box.y < 0))
+	if ((box.y > SCREEN_HEIGHT) || (box.y < 0))
 	{
 		die();
 	}
 	
-	if((box.x > SCREEN_WIDTH) || (box.x < 0))
+	if ((box.x > SCREEN_WIDTH) || (box.x < 0))
 	{
 		die();
 	}
@@ -1376,7 +1383,9 @@ Enemy::Enemy()
 	box.w= E1_WIDTH; box.h = E1_HEIGHT;
 	b3_cooldown = B3_COOLDOWN + rand() % 300;
 	hp = E1_HP; attack = E1_ATTACK;
-	sprite = enemy1;
+	sprite = enemy1; explosion = boom1;
+	explosion_x = box.x; explosion_y = box.y;
+	explosion_timer = 0;
 }
 
 void Enemy::spawn()
@@ -1395,9 +1404,14 @@ void Enemy::update()
 		box.y += yv;
 	}
 	
-	if((box.y > SCREEN_HEIGHT))
+	if ((box.y > SCREEN_HEIGHT))
 	{
 		die();
+	}
+
+	if (explosion_timer > 0)
+	{
+		explosion_timer--;
 	}
 }
 
@@ -1406,6 +1420,11 @@ void Enemy::show()
 	if (alive)
 	{
 		apply_surface(box.x, box.y, sprite, screen);
+	}
+
+	if (explosion_timer > 0)
+	{
+		apply_surface(explosion_x, explosion_y, explosion, screen);
 	}
 }
 
@@ -1421,7 +1440,9 @@ void Enemy::damage(int attack)
 void Enemy::die()
 {
 	alive = false;
+	explosion_x = box.x; explosion_y = box.y;
 	box.x = -1000; box.y = 1000;
 	xv = 0; yv = 0;
 	spawn(); // spawn new enemies
+	explosion_timer = E1_EXPLODE_TIME;
 }
