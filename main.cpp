@@ -57,6 +57,8 @@ const int AS1_HP = 5;
 const int AS1_ATTACK = 10;
 const int D1_HEIGHT = 20;
 const int D1_WIDTH = 20;
+const int D1_MAX = AS1_MAX * 4;
+const int D1_ATTACK = 2;
 
 // Enemy related stuff
 const int E1_HEIGHT = 30;
@@ -103,6 +105,12 @@ TTF_Font *font1 = NULL;
 SDL_Rect clips_ship[7];
 
 
+struct Background
+{
+	int x, y, scroll_speed;
+	SDL_Surface *image;
+};
+
 // The ship that will move around on the screen
 // classes are by default private
 class Ship
@@ -111,18 +119,23 @@ class Ship
 	int x_vel, y_vel;
 	int frame;
 	bool frame_up;
+	int hp; int score;
 	
 	// Initialise the class
 	public:
 	SDL_Rect box;
-	int hp; int score; int attack;
+	int attack;
 	Ship();
 	
 	// Prototype functions
+	void set_clips();
 	void handle_input(); // use keypresses to adjust velocity
 	void move(); // actually move the ship (and check the bounds of the screen)
 	void show(); // blit to screen
 	void damage(int attack);
+	void increase_score(int points);
+	int return_hp();
+	int return_score();
 };
 
 // The timer - used for capping fps and could be adapted to give certain objects
@@ -187,6 +200,7 @@ class Debris
 	int xv, yv;
 	
 	public:
+	int attack;
 	SDL_Rect box;
 	SDL_Surface* sprite;
 	bool alive;
@@ -226,7 +240,7 @@ void apply_surface(int x, int y, SDL_Surface* source, SDL_Surface* destination, 
 bool init();
 bool load_files();
 void clean_quit();
-void set_clips();
+void update_bg(Background& bg, SDL_Surface* display);
 bool box_collision(SDL_Rect A, SDL_Rect B);
 void update_hud(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
 
@@ -265,10 +279,13 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	bool quit = false; // quit flag
 	srand(time(NULL)); // initialise random seed
 	
-	int bg_x = 0, bg_y = 0; // offsets used by the scrolling background
-	int stars_x = 0, stars_y = 0, planets_x = 0, planets_y = 0, nebulae_x = 0, nebulae_y = 0;
+	// Setup backgrounds
+	Background distant = {0, 0, 1, background};
+	Background starfield = {0, 0, 2, stars};
+	Background planetoids = {0, 0, 3, planets};
+	Background nebula = {0, 0, 5, nebulae};
 	
-	Ship my_ship; // setup the ship
+	Ship player_ship; // setup the ship
 
 	Bullet b1[B1_SHOTS]; // setup primitive bullet
 	for (int i = 0; i < B1_SHOTS; i++)
@@ -287,7 +304,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	bool b2_firing = false;
 
 	Asteroid a1[AS1_MAX];
-	Debris d1[AS1_MAX*4];
+	Debris d1[D1_MAX];
 	
 	Enemy e1[E1_MAX];
 	for (int i = 0; i < E1_MAX; i++)
@@ -308,7 +325,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		e1[i].spawn();
 	}
 
-	set_clips();
+	player_ship.set_clips();
 	Timer fps; // frame rate regulator
 	
 	// Attempt to play the music on loop
@@ -325,7 +342,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		// While there's events...
 		while(SDL_PollEvent(&event))
 		{
-			my_ship.handle_input(); // check input for the ship
+			player_ship.handle_input(); // check input for the ship
 			
 			if (event.type == SDL_KEYDOWN)
 			{
@@ -400,7 +417,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			}
 		}
 		
-		my_ship.move(); // calculate ship's position
+		player_ship.move(); // calculate ship's position
 
 		// Firing for player bullet type 1
 		if ((b1_firing == true) && (b1_cooldown < 1))
@@ -409,7 +426,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			{
 				if (b1[i].alive == false)
 				{
-					b1[i].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (B1_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), 0, -10, B1_WIDTH, B1_HEIGHT);
+					b1[i].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B1_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), 0, -10, B1_WIDTH, B1_HEIGHT);
 					Mix_PlayChannel(-1, shot1, 0);
 					break;
 				}
@@ -424,10 +441,10 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			{
 				if (b2[i].alive == false)
 				{
-					b2[i].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), 1, -10, B2_WIDTH, B2_HEIGHT);
-					b2[i+1].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), -1, -10, B2_WIDTH, B2_HEIGHT);
-					b2[i+2].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), 2, -10, B2_WIDTH, B2_HEIGHT);
-					b2[i+3].fire(my_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), my_ship.box.y + (SHIP_HEIGHT / 2), -2, -10, B2_WIDTH, B2_HEIGHT);
+					b2[i].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), 1, -10, B2_WIDTH, B2_HEIGHT);
+					b2[i+1].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), -1, -10, B2_WIDTH, B2_HEIGHT);
+					b2[i+2].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), 2, -10, B2_WIDTH, B2_HEIGHT);
+					b2[i+3].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), -2, -10, B2_WIDTH, B2_HEIGHT);
 					Mix_PlayChannel(-1, shot2, 0);
 					break;
 				}
@@ -446,7 +463,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				{
 					int debris_spawned = 0;
 					// Generate debris exploding in an "X" formation
-					for (int k = 0; k < AS1_MAX*4; k++)
+					for (int k = 0; k < D1_MAX; k++)
 					{
 						if (d1[k].alive == false)
 						{
@@ -477,7 +494,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					// Destroy asteroid and bullet
 					a1[j].damage(b1[i].attack);
 					b1[i].die();
-					my_ship.score += 10;
+					player_ship.increase_score(10);
 				}
 			}
 
@@ -488,8 +505,19 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				{
 					e1[j].damage(b1[i].attack);
 					b1[i].die();
-					my_ship.score += 100;
+					player_ship.increase_score(100);
 					Mix_PlayChannel(-1, break2, 0);
+				}
+			}
+
+			// Collide with debris
+			for (int j = 0; j < D1_MAX; j++)
+			{
+				if (box_collision(b1[i].box, d1[j].box))
+				{
+					b1[i].die();
+					d1[j].die();
+					player_ship.increase_score(5);
 				}
 			}
 		}
@@ -506,7 +534,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				{
 					int debris_spawned = 0;
 					// Generate debris exploding in an "X" formation
-					for (int k = 0; k < AS1_MAX*4; k++)
+					for (int k = 0; k < D1_MAX; k++)
 					{
 						if (d1[k].alive == false)
 						{
@@ -537,7 +565,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					// Destroy asteroid and bullet
 					a1[j].damage(b2[i].attack);
 					b2[i].die();
-					my_ship.score += 10;
+					player_ship.increase_score(10);
 				}
 			}
 
@@ -548,8 +576,19 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				{
 					e1[j].damage(b2[i].attack);
 					b2[i].die();
-					my_ship.score += 100;
+					player_ship.increase_score(100);
 					Mix_PlayChannel(-1, break2, 0);
+				}
+			}
+
+			// Collide with debris
+			for (int j = 0; j < D1_MAX; j++)
+			{
+				if (box_collision(b2[i].box, d1[j].box))
+				{
+					b2[i].die();
+					d1[j].die();
+					player_ship.increase_score(5);
 				}
 			}
 		}
@@ -561,11 +600,11 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		// Asteroid collisions
 		for (int i = 0; i < AS1_MAX; i++)
 		{
-			if (box_collision(my_ship.box, a1[i].box)) // lazy box collision between ship and asteroid
+			if (box_collision(player_ship.box, a1[i].box)) // lazy box collision between ship and asteroid
 			{
 				int debris_spawned = 0;
 				// Generate debris exploding in an "X" formation
-				for (int j = 0; j < AS1_MAX*4; j++)
+				for (int j = 0; j < D1_MAX; j++)
 				{
 					if (d1[j].alive == false)
 					{
@@ -594,49 +633,25 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				}
 				Mix_PlayChannel(-1, break1, 0);
 				// Update ship health and the HUD string
-				my_ship.damage(a1[i].attack);
+				player_ship.damage(a1[i].attack);
 				a1[i].die();
+			}
+
+			// Asteroids collide with debris
+			for (int j = 0; j < D1_MAX; j++)
+			{
+				if (box_collision(a1[i].box, d1[j].box))
+				{
+					a1[i].damage(d1[j].attack);
+					d1[j].die();
+				}
 			}
 		}
 
-		
-		// scroll backgrounds down
-		bg_y += 1;
-		stars_y += 2;
-		planets_y += 3;
-		nebulae_y += 5;
-		
-		
-		// If the background has gone too far down...
-		if( bg_y >= background->h )
-		{
-			bg_y = 0; // reset offset
-		}
-		
-		if ( stars_y >= stars->h)
-		{
-			stars_y = 0;
-		}
-		
-		if ( nebulae_y >= nebulae->h)
-		{
-			nebulae_y = 0;
-		}
-		
-		if ( planets_y >= planets->h)
-		{
-			planets_y = 0;
-		}
-		
-		// Apply scrolling backgrounds
-		apply_surface(bg_x, bg_y, background, screen); // show background at current coordinates
-		apply_surface(bg_x, bg_y - background->h, background, screen); // display a copy slightly offset to the original to create the illusion of scrolling
-		
-		apply_surface(stars_x, stars_y, stars, screen);
-		apply_surface(stars_x, stars_y - stars->h, stars, screen);
-		
-		apply_surface(planets_x, planets_y, planets, screen);
-		apply_surface(planets_x, planets_y - planets->h, planets, screen);
+		// Update scrolling backgrounds
+		update_bg(distant, screen);
+		update_bg(starfield, screen);
+		update_bg(planetoids, screen);
 		
 		// Display player bullets
 		for (int i = 0; i < B1_SHOTS; i++)
@@ -648,12 +663,17 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			b2[i].show();
 		}
 		
-		my_ship.show(); // display the ship's current position
+		player_ship.show(); // display the ship's current position
 		
 		// Update AND display asteroid debris
-		for (int i = 0; i < AS1_MAX*4; i++)
+		for (int i = 0; i < D1_MAX; i++)
 		{
 			d1[i].update();
+			if (box_collision(d1[i].box, player_ship.box))
+			{
+				player_ship.damage(d1[i].attack);
+				d1[i].die();
+			}
 			d1[i].show();
 		}
 		
@@ -685,36 +705,27 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			for (int j = 0; j < B3_SHOTS; j++)
 			{
 				e1[i].b3[j].update();
-				if (box_collision(my_ship.box, e1[i].b3[j].box)) // lazy box collision between ship and enemy bullets
+				if (box_collision(player_ship.box, e1[i].b3[j].box)) // lazy box collision between ship and enemy bullets
 				{
 					e1[i].b3[j].die();
-					my_ship.damage(e1[i].b3[j].attack);
+					player_ship.damage(e1[i].b3[j].attack);
 				}
 				e1[i].b3[j].show();	
 			}
 			// Weapon cools down, enemy moves, check for collision with player, then display
 			e1[i].b3_cooldown--;
 			e1[i].update();
-			if (box_collision(my_ship.box, e1[i].box))
+			if (box_collision(player_ship.box, e1[i].box))
 			{
-				my_ship.damage(e1[i].attack);
-				e1[i].damage(my_ship.attack);
+				player_ship.damage(e1[i].attack);
+				e1[i].damage(player_ship.attack);
 			}
 			e1[i].show();
 		}
 		
-		// Apply scrolling foreground layer
-		apply_surface(nebulae_x, nebulae_y, nebulae, screen);
-		apply_surface(nebulae_x, nebulae_y - nebulae->h, nebulae, screen);
-		
-		// Update HUD
-		/*update_health(my_ship, HUD_health, screen);
-		update_score(my_ship, HUD_score, screen);
-		if (DEBUG)
-		{
-			update_fps(my_ship, HUD_fps, screen);
-		}*/
-		update_hud(my_ship, HUD_display, screen);
+		// Apply foreground layers
+		update_bg(nebula, screen);
+		update_hud(player_ship, HUD_display, screen);
 		
 
 		// Update the screen, if unable to do so, return 1
@@ -892,44 +903,20 @@ void clean_quit()
 	SDL_Quit(); // close SDL
 }
 
-// Setup the clips of the spritesheet for the ship
-void set_clips()
+void update_bg(Background& bg, SDL_Surface* display)
 {
-    //Clip the sprites
-    clips_ship[ 0 ].x = 0;
-    clips_ship[ 0 ].y = 0;
-    clips_ship[ 0 ].w = SHIP_WIDTH;
-    clips_ship[ 0 ].h = SHIP_HEIGHT;
-
-    clips_ship[ 1 ].x = SHIP_WIDTH;
-    clips_ship[ 1 ].y = 0;
-    clips_ship[ 1 ].w = SHIP_WIDTH;
-    clips_ship[ 1 ].h = SHIP_HEIGHT;
-
-    clips_ship[ 2 ].x = SHIP_WIDTH * 2;
-    clips_ship[ 2 ].y = 0;
-    clips_ship[ 2 ].w = SHIP_WIDTH;
-    clips_ship[ 2 ].h = SHIP_HEIGHT;
-
-    clips_ship[ 3 ].x = SHIP_WIDTH * 3;
-    clips_ship[ 3 ].y = 0;
-    clips_ship[ 3 ].w = SHIP_WIDTH;
-    clips_ship[ 3 ].h = SHIP_HEIGHT;
-
-    clips_ship[ 4 ].x = SHIP_WIDTH * 4;
-    clips_ship[ 4 ].y = 0;
-    clips_ship[ 4 ].w = SHIP_WIDTH;
-    clips_ship[ 4 ].h = SHIP_HEIGHT;
-
-    clips_ship[ 5 ].x = SHIP_WIDTH * 5;
-    clips_ship[ 5 ].y = 0;
-    clips_ship[ 5 ].w = SHIP_WIDTH;
-    clips_ship[ 5 ].h = SHIP_HEIGHT;
-
-    clips_ship[ 6 ].x = SHIP_WIDTH * 6;
-    clips_ship[ 6 ].y = 0;
-    clips_ship[ 6 ].w = SHIP_WIDTH;
-    clips_ship[ 6 ].h = SHIP_HEIGHT;
+	// scroll backgrounds down
+	bg.y += bg.scroll_speed;
+			
+	// If the background has gone too far down...
+	if (bg.y >= bg.image->h )
+	{
+		bg.y = 0; // reset offset
+	}
+	
+	// Apply to screen
+	apply_surface(bg.x, bg.y, bg.image, display); // show background at current coordinates
+	apply_surface(bg.x, bg.y - bg.image->h, bg.image, display); // display a copy slightly offset to the original to create the illusion of scrolling
 }
 
 // Generic rectangular collision detection - inaccurate but FAST
@@ -985,10 +972,10 @@ void update_hud(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
 	string HUD_health_txt;
 	string HUD_score_txt;
 	
-	ss << player.hp;
+	ss << player.return_hp();
 	HUD_health_txt = "Health = " + ss.str();
 	ss.str(string());
-	ss << player.score;
+	ss << player.return_score();
 	HUD_score_txt = "Score = " + ss.str();
 	ss.str(string());
 	
@@ -1027,6 +1014,46 @@ Ship::Ship()
 	frame = 0;
 	frame_up = true;
 	hp = 100; score = 0; attack = 10;
+}
+
+// Setup the clips of the spritesheet for the ship
+void Ship::set_clips()
+{
+    //Clip the sprites
+    clips_ship[ 0 ].x = 0;
+    clips_ship[ 0 ].y = 0;
+    clips_ship[ 0 ].w = SHIP_WIDTH;
+    clips_ship[ 0 ].h = SHIP_HEIGHT;
+
+    clips_ship[ 1 ].x = SHIP_WIDTH;
+    clips_ship[ 1 ].y = 0;
+    clips_ship[ 1 ].w = SHIP_WIDTH;
+    clips_ship[ 1 ].h = SHIP_HEIGHT;
+
+    clips_ship[ 2 ].x = SHIP_WIDTH * 2;
+    clips_ship[ 2 ].y = 0;
+    clips_ship[ 2 ].w = SHIP_WIDTH;
+    clips_ship[ 2 ].h = SHIP_HEIGHT;
+
+    clips_ship[ 3 ].x = SHIP_WIDTH * 3;
+    clips_ship[ 3 ].y = 0;
+    clips_ship[ 3 ].w = SHIP_WIDTH;
+    clips_ship[ 3 ].h = SHIP_HEIGHT;
+
+    clips_ship[ 4 ].x = SHIP_WIDTH * 4;
+    clips_ship[ 4 ].y = 0;
+    clips_ship[ 4 ].w = SHIP_WIDTH;
+    clips_ship[ 4 ].h = SHIP_HEIGHT;
+
+    clips_ship[ 5 ].x = SHIP_WIDTH * 5;
+    clips_ship[ 5 ].y = 0;
+    clips_ship[ 5 ].w = SHIP_WIDTH;
+    clips_ship[ 5 ].h = SHIP_HEIGHT;
+
+    clips_ship[ 6 ].x = SHIP_WIDTH * 6;
+    clips_ship[ 6 ].y = 0;
+    clips_ship[ 6 ].w = SHIP_WIDTH;
+    clips_ship[ 6 ].h = SHIP_HEIGHT;
 }
 
 // Our keyboard input handler, uses switch case to make things a bit tidier than if/else.
@@ -1110,6 +1137,20 @@ void Ship::damage(int attack)
 	hp -= attack;
 }
 
+void Ship::increase_score(int points)
+{
+	score += points;
+}
+
+int Ship::return_hp()
+{
+	return hp;
+}
+
+int Ship::return_score()
+{
+	return score;
+}
 
 // Just blit the ship to the screen. Simple. Animates through 7 frames
 void Ship::show()
@@ -1318,7 +1359,8 @@ Debris::Debris()
 {
 	alive = false;
 	box.x = -500; box.y = 500; xv = 0; yv = 0;
-	box.w= D1_WIDTH; box.h = D1_HEIGHT;
+	box.w = D1_WIDTH; box.h = D1_HEIGHT;
+	attack = D1_ATTACK;
 	sprite = debris;
 }
 
