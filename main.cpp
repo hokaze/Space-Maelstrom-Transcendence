@@ -33,7 +33,7 @@ using namespace std;
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
 const int SCREEN_BPP = 32;
-bool DEBUG = false;
+bool DEBUG = true;
 bool FULLSCREEN = false;
 int MAX_FPS = 60;
 
@@ -78,6 +78,7 @@ const int B3_ATTACK = 5;
 // Setup surfaces, event system and BGM
 SDL_Surface *title_bg = NULL;
 SDL_Surface *title_selection = NULL;
+SDL_Surface *help_popup = NULL;
 SDL_Surface *ship = NULL;
 SDL_Surface *bullet = NULL;
 SDL_Surface *bullet2 = NULL;
@@ -281,7 +282,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	}
 	
 	bool quit = false; // quit flag
-	bool menu = true; int menu_item  = 0;
+	bool menu = true; bool help = true; int menu_item  = 0;
 	srand(time(NULL)); // initialise random seed
 	Timer fps; // frame rate regulator
 	fps.start(); // start timer
@@ -293,6 +294,10 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		{
 			if (event.type = SDL_KEYDOWN)
 			{
+				if (help)
+				{
+					help = false;
+				}
 				if (event.key.keysym.sym == SDLK_UP)
 				{
 					if (menu_item > 0)
@@ -313,11 +318,19 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					{
 						menu = false;
 					}
+					else if (menu_item == 4)
+					{
+						help = true;
+					}
 					else if (menu_item == 6)
 					{
 						menu = false;
 						quit = true;
 					}
+				}
+				else if (event.key.keysym.sym == SDLK_F1)
+				{
+					help = true;
 				}
 			}
 			// If the user has closed the program or hit ESC
@@ -346,7 +359,12 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		{
 			apply_surface(0, 400, title_selection, screen);
 		}
-		
+
+		if (help)
+		{
+			apply_surface(0, 0, help_popup, screen);
+		}
+
 		SDL_Flip(screen); // update screen
 		
 		// Cap the frame rate to our specified maximum fps
@@ -414,6 +432,18 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	while(quit == false)
 	{
 		fps.start(); // start timer
+
+		while (help)
+		{
+			while(SDL_PollEvent(&event))
+			{
+				//if ((event.key.keysym.sym == SDLK_z) || (event.key.keysym.sym == SDLK_RETURN) || (event.key.keysym.sym == SDLK_x))
+				if (event.type == SDL_KEYDOWN)
+				{
+					help = false;
+				}
+			}
+		}
 		
 		// While there's events...
 		while(SDL_PollEvent(&event))
@@ -494,6 +524,12 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				ofstream highscore("highscore.txt");
 				highscore << player_ship.return_score() << endl;
 				highscore.close();
+			}
+
+			// Press F1 to get help
+			if (event.key.keysym.sym == SDLK_F1)
+			{
+				help = true;
 			}
 		}
 		
@@ -806,6 +842,10 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		// Apply foreground layers
 		update_bg(nebula, screen);
 		update_hud(player_ship, HUD_display, screen);
+		if (help)
+		{
+			apply_surface(0, 0, help_popup, screen);
+		}
 		
 
 		// Update the screen, if unable to do so, return 1
@@ -925,6 +965,7 @@ bool load_files()
 {
 	title_bg = load_image("img/title_bg.png");
 	title_selection = load_image("img/title_selection.png");
+	help_popup = load_image("img/help_popup.png");
 	ship = load_image("img/shipsheet.png");
 	bullet = load_image("img/pew1.png");
 	bullet2 = load_image("img/pew2.png");
@@ -960,6 +1001,7 @@ void clean_quit()
 	// Free the surfaces
 	SDL_FreeSurface(title_bg);
 	SDL_FreeSurface(title_selection);
+	SDL_FreeSurface(help_popup);
 	SDL_FreeSurface(ship);
 	SDL_FreeSurface(background);
 	SDL_FreeSurface(stars);

@@ -1,3 +1,6 @@
+# v0.40 #
+Help popup impemented on main menu and in-game (F1)
+
 # v0.39 #
 Very primitive highscore placeholder code, tweaked sound effects (mostly made quieter, faster)
 Added remix of bgm (for future boss fight maybe?)
