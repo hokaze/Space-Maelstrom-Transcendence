@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
+#include <iostream> // DEBUG
 using namespace std;
 
 
@@ -78,6 +79,7 @@ const int B3_ATTACK = 5;
 SDL_Surface *title_bg = NULL;
 SDL_Surface *title_selection = NULL;
 SDL_Surface *help_popup = NULL;
+SDL_Surface *highscore_popup = NULL;
 SDL_Surface *ship = NULL;
 SDL_Surface *bullet = NULL;
 SDL_Surface *bullet2 = NULL;
@@ -101,6 +103,8 @@ Mix_Chunk *shot2 = NULL;
 Mix_Chunk *shot3 = NULL;
 Mix_Chunk *break1 = NULL;
 Mix_Chunk *break2 = NULL;
+Mix_Chunk *menu1 = NULL;
+Mix_Chunk *menu2 = NULL;
 
 SDL_Surface *HUD_display = NULL;
 TTF_Font *font1 = NULL;
@@ -113,6 +117,12 @@ struct Background
 {
 	int x, y, scroll_speed;
 	SDL_Surface *image;
+};
+
+struct Highscore
+{
+	string name;
+	int pos, score;
 };
 
 // The ship that will move around on the screen
@@ -247,6 +257,8 @@ void clean_quit();
 void update_bg(Background& bg, SDL_Surface* display);
 bool box_collision(SDL_Rect A, SDL_Rect B);
 void update_hud(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
+void load_highscores(Highscore table[]);
+void show_highscores(Highscore table[], SDL_Surface* HUD, SDL_Surface* screen);
 
 
 //////////////////////////////////////////////////////////////////////
@@ -281,16 +293,25 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	}
 	
 	bool quit = false; // quit flag
-	bool menu = true; bool help = false; int menu_item  = 0;
+	Highscore score_table[10]; // highscores has 10 entries
+	bool menu = true; bool help = false; bool view_scores = false;
+	int menu_item  = 0; int menu_action = 0;
 	srand(time(NULL)); // initialise random seed
 	Timer fps; // frame rate regulator
 	fps.start(); // start timer
 	SDL_EventState(SDL_MOUSEMOTION, SDL_IGNORE); // ignore mouse events
+	load_highscores(score_table);
+	
+	// DEBUG
+	/*for (int i = 0; i < 10; i++)
+	{
+		cout << score_table[i].pos << " " << score_table[i].name << " " << score_table[i].score << endl;
+	}*/
 	
 	// Main menu
 	while (menu)
 	{
-		while(SDL_PollEvent(&event))
+		if (SDL_PollEvent(&event))
 		{
 			if (event.type = SDL_KEYDOWN)
 			{
@@ -298,29 +319,42 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				{
 					help = false;
 				}
+				if (view_scores)
+				{
+					view_scores = false;
+				}
 				if (event.key.keysym.sym == SDLK_UP)
 				{
 					if (menu_item > 0)
 					{
 						menu_item--;
+						menu_action = 1;
 					}
 				}
-				else if (event.key.keysym.sym == SDLK_DOWN)
+				if (event.key.keysym.sym == SDLK_DOWN)
 				{
 					if (menu_item < 6)
 					{
 						menu_item++;
+						menu_action = 1;
 					}
 				}
-				else if ((event.key.keysym.sym == SDLK_z) || (event.key.keysym.sym == SDLK_RETURN))
+				if ((event.key.keysym.sym == SDLK_z) || (event.key.keysym.sym == SDLK_RETURN))
 				{
 					if (menu_item == 0)
 					{
 						menu = false;
+						menu_action = 2;
+					}
+					else if (menu_item == 2)
+					{
+						view_scores = true;
+						menu_action = 2;
 					}
 					else if (menu_item == 4)
 					{
 						help = true;
+						menu_action = 2;
 					}
 					else if (menu_item == 6)
 					{
@@ -328,18 +362,43 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 						quit = true;
 					}
 				}
-				else if (event.key.keysym.sym == SDLK_F1)
+				if (event.key.keysym.sym == SDLK_F1)
 				{
 					help = true;
 				}
+				if (event.key.keysym.sym == SDLK_F2)
+				{
+					menu = false;
+				}
+				if (event.key.keysym.sym == SDLK_F3)
+				{
+					view_scores = true;
+				}
+				if (event.key.keysym.sym == SDLK_ESCAPE)
+				{
+					quit = true;
+					menu = false;
+				}
 			}
 			// If the user has closed the program or hit ESC
-			if((event.type == SDL_QUIT) || (event.key.keysym.sym == SDLK_ESCAPE))
+			if (event.type == SDL_QUIT)
 			{
 				quit = true;
 				menu = false;
 			}
 		}
+		
+		// Play menu sound effects
+		if (menu_action == 1)
+		{
+			Mix_PlayChannel(-1, menu1, 0);
+		}
+		if (menu_action == 2)
+		{
+			Mix_PlayChannel(-1, menu2, 0);
+		}
+		
+		menu_action = 0;
 		
 		// Draw to display
 		apply_surface(0, 0, title_bg, screen);
@@ -363,6 +422,12 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		if (help)
 		{
 			apply_surface(0, 0, help_popup, screen);
+		}
+		
+		if (view_scores)
+		{
+			apply_surface(0, 0, highscore_popup, screen);
+			show_highscores(score_table, HUD_display, screen);
 		}
 
 		SDL_Flip(screen); // update screen
@@ -502,6 +567,15 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 						}
 					}
 				}
+				// Press F1 to get help
+				if (event.key.keysym.sym == SDLK_F1)
+				{
+					help = true;
+				}
+				if (event.key.keysym.sym == SDLK_ESCAPE)
+				{
+					quit = true;
+				}
 			}
 
 			else if (event.type == SDL_KEYUP)
@@ -517,19 +591,9 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			}
 			
 			// If the user has closed the program or hit ESC
-			if((event.type == SDL_QUIT) || (event.key.keysym.sym == SDLK_ESCAPE))
+			if(event.type == SDL_QUIT)
 			{
 				quit = true;
-				// Write to highscore table
-				ofstream highscore("highscore.txt");
-				highscore << player_ship.return_score() << endl;
-				highscore.close();
-			}
-
-			// Press F1 to get help
-			if (event.key.keysym.sym == SDLK_F1)
-			{
-				help = true;
 			}
 		}
 		
@@ -966,6 +1030,7 @@ bool load_files()
 	title_bg = load_image("img/title_bg.png");
 	title_selection = load_image("img/title_selection.png");
 	help_popup = load_image("img/help_popup.png");
+	highscore_popup = load_image("img/highscore_popup.png");
 	ship = load_image("img/shipsheet.png");
 	bullet = load_image("img/pew1.png");
 	bullet2 = load_image("img/pew2.png");
@@ -984,7 +1049,9 @@ bool load_files()
 	shot3 = Mix_LoadWAV("snd/pew3.wav");
 	break1 = Mix_LoadWAV("snd/break1.wav");
 	break2 = Mix_LoadWAV("snd/break2.wav");
-	font1 = TTF_OpenFont("terminus.ttf", 12);
+	menu1 = Mix_LoadWAV("snd/menu1.wav");
+	menu2 = Mix_LoadWAV("snd/menu2.wav");
+	font1 = TTF_OpenFont("terminus.ttf", 14);
 	
 	// If any file doesn't load, return false
 	if((ship == NULL) || (background == NULL) || (bgm1 == NULL) || (stars == NULL) || (bullet == NULL) || (planets == NULL) || (nebulae == NULL))
@@ -1002,6 +1069,7 @@ void clean_quit()
 	SDL_FreeSurface(title_bg);
 	SDL_FreeSurface(title_selection);
 	SDL_FreeSurface(help_popup);
+	SDL_FreeSurface(highscore_popup);
 	SDL_FreeSurface(ship);
 	SDL_FreeSurface(background);
 	SDL_FreeSurface(stars);
@@ -1020,6 +1088,8 @@ void clean_quit()
 	Mix_FreeChunk(shot3);
 	Mix_FreeChunk(break1);
 	Mix_FreeChunk(break2);
+	Mix_FreeChunk(menu1);
+	Mix_FreeChunk(menu2);
 	Mix_CloseAudio(); // close the audio mixer
 	
 	SDL_FreeSurface(HUD_display);
@@ -1109,7 +1179,7 @@ void update_hud(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
 	apply_surface(5, 5, HUD, screen);
 	SDL_FreeSurface(HUD);
 	HUD = TTF_RenderText_Solid(font1, HUD_score_txt.c_str(), WHITE);
-	apply_surface(5, 15, HUD, screen);
+	apply_surface(5, 20, HUD, screen);
 	SDL_FreeSurface(HUD);
 	
 	if (DEBUG)
@@ -1119,16 +1189,62 @@ void update_hud(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
 		HUD_debug_txt = "MAX_FPS : " + ss.str();
 		ss.str(string());
 		HUD = TTF_RenderText_Solid(font1, HUD_debug_txt.c_str(), WHITE);
-		apply_surface(5, 35, HUD, screen);
+		apply_surface(5, 45, HUD, screen);
 		SDL_FreeSurface(HUD);
 		ss << player.b1_cooldown << ", " << player.b2_cooldown;
 		HUD_debug_txt = "COOLDOWN: " + ss.str();
 		ss.str(string());
 		HUD = TTF_RenderText_Solid(font1, HUD_debug_txt.c_str(), WHITE);
-		apply_surface(5, 45, HUD, screen);
+		apply_surface(5, 60, HUD, screen);
 		SDL_FreeSurface(HUD);
 	}
 }
+
+void load_highscores(Highscore table[])
+{
+	ifstream score_file("highscore.txt");
+	string entry;
+	int i = 0, j = 0;
+	
+	while (score_file.good())
+	{
+		getline(score_file, entry, ','); // read in lines, using commas as delimiters
+		if (j == 0) {table[i].pos = atoi(entry.c_str());}
+		else if (j == 1) {table[i].name = entry;}
+		else if (j == 2) {table[i].score = atoi(entry.c_str());}
+		j++;
+		if (j > 2) {j = 0; i++;}
+	}
+}
+
+void show_highscores(Highscore table[], SDL_Surface* HUD, SDL_Surface* screen)
+{
+	stringstream ss;
+	int x = 70, y = 150;
+	
+	for (int i = 0; i < 10; i++)
+	{
+		ss << table[i].pos;
+		HUD = TTF_RenderText_Solid(font1, ss.str().c_str(), WHITE);
+		apply_surface(x, y, HUD, screen);
+		x += 110;
+		SDL_FreeSurface(HUD);
+		ss.str(string());
+		
+		HUD = TTF_RenderText_Solid(font1, table[i].name.c_str(), WHITE);
+		apply_surface(x, y, HUD, screen);
+		x += 220;
+		SDL_FreeSurface(HUD);
+		
+		ss << table[i].score;
+		HUD = TTF_RenderText_Solid(font1, ss.str().c_str(), WHITE);
+		apply_surface(x, y, HUD, screen);
+		x = 70; y += 25;
+		SDL_FreeSurface(HUD);
+		ss.str(string());
+	}
+}
+
 
 // Puts the ship in the bottom-centre
 Ship::Ship()

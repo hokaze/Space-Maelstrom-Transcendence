@@ -1,7 +1,11 @@
+# v0.42 #
+All bugs with F1 help in-game seem to be fixed.
+Added high score display and sounds to menu. Because of input bug, sounds may play twice
+
 # v0.41 #
 Modification to Ship::handle_input() fixes movement bug with pressing F1 in-game.
 SDL_PollEvent now uses if instead of while as we're already in a while loop, may provide slight performance boost.
-Bullet cooldown on b1 and b2 now use player_ship values, elinating need for global int.
+Bullet cooldown on b1 and b2 now use player_ship values, eliminating need for global int.
 SDL key event problem where keys are registered twice not fixed.
 
 # v0.40 #
