@@ -1,3 +1,8 @@
+# v0.39 #
+Very primitive highscore placeholder code, tweaked sound effects (mostly made quieter, faster)
+Added remix of bgm (for future boss fight maybe?)
+Added title screen graphics, primitive title screen
+
 # v0.38 #
 Code cleanup: set_clips() now part of my_ship, my_ship renamed player_ship, created update_bg() function and the Background struct to simplify Main slightly.
 player_ship score and hp made private, new functions for update/access.
