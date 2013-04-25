@@ -21,7 +21,6 @@
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
-#include <iostream>
 using namespace std;
 
 
@@ -43,12 +42,12 @@ const int SHIP_HEIGHT = 32;
 const int B1_WIDTH = 10;
 const int B1_HEIGHT = 12;
 const int B1_SHOTS = 30;
-int B1_COOLDOWN = 15;
+const int B1_COOLDOWN = 15;
 const int B1_ATTACK = 10;
 const int B2_WIDTH = 14;
 const int B2_HEIGHT = 18;
 const int B2_SHOTS = 80;
-int B2_COOLDOWN = 30;
+const int B2_COOLDOWN = 30;
 const int B2_ATTACK = 5;
 
 // Obstacle related stuff
@@ -129,7 +128,7 @@ class Ship
 	// Initialise the class
 	public:
 	SDL_Rect box;
-	int attack;
+	int attack; int b1_cooldown; int b2_cooldown;
 	Ship();
 	
 	// Prototype functions
@@ -282,10 +281,11 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	}
 	
 	bool quit = false; // quit flag
-	bool menu = true; bool help = true; int menu_item  = 0;
+	bool menu = true; bool help = false; int menu_item  = 0;
 	srand(time(NULL)); // initialise random seed
 	Timer fps; // frame rate regulator
 	fps.start(); // start timer
+	SDL_EventState(SDL_MOUSEMOTION, SDL_IGNORE); // ignore mouse events
 	
 	// Main menu
 	while (menu)
@@ -432,10 +432,10 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	while(quit == false)
 	{
 		fps.start(); // start timer
-
+		
 		while (help)
 		{
-			while(SDL_PollEvent(&event))
+			if (SDL_PollEvent(&event))
 			{
 				//if ((event.key.keysym.sym == SDLK_z) || (event.key.keysym.sym == SDLK_RETURN) || (event.key.keysym.sym == SDLK_x))
 				if (event.type == SDL_KEYDOWN)
@@ -446,7 +446,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		}
 		
 		// While there's events...
-		while(SDL_PollEvent(&event))
+		if (SDL_PollEvent(&event))
 		{
 			player_ship.handle_input(); // check input for the ship
 			
@@ -487,18 +487,18 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					}
 					if (event.key.keysym.sym == SDLK_PAGEDOWN) // decrease bullet cooldown
 					{
-						if (B1_COOLDOWN > 1)
+						if (player_ship.b1_cooldown > 1)
 						{
-							B1_COOLDOWN -= 2;
-							B2_COOLDOWN -= 4;
+							player_ship.b1_cooldown -= 2;
+							player_ship.b2_cooldown -= 4;
 						}
 					}
 					if (event.key.keysym.sym == SDLK_PAGEUP) // increase bullet cooldown
 					{
-						if (B1_COOLDOWN < 59)
+						if (player_ship.b1_cooldown < 59)
 						{
-							B1_COOLDOWN += 2;
-							B2_COOLDOWN += 4;
+							player_ship.b1_cooldown += 2;
+							player_ship.b2_cooldown += 4;
 						}
 					}
 				}
@@ -547,7 +547,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					break;
 				}
 			}
-			b1_cooldown = B1_COOLDOWN;
+			b1_cooldown = player_ship.b1_cooldown;
 		}
 
 		// Firing for player bullet type 2
@@ -565,7 +565,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					break;
 				}
 			}
-			b2_cooldown = B2_COOLDOWN;
+			b2_cooldown = player_ship.b2_cooldown;
 		}
 
 		// Update array for player bullet type 1
@@ -932,7 +932,6 @@ bool init()
 		screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE);
 	}
 	
-	// If there was an error in setting up the screen, return false
 	if( screen == NULL )
 	{
 		return false;
@@ -946,13 +945,14 @@ bool init()
 	{
 		return false;
 	}
-
+	
 	// Initialise SDL_ttf
-    if( TTF_Init() == -1 )
-    {
-        return false;    
-    }
-
+	if( TTF_Init() == -1 )
+	{
+		return false;    
+		
+	}
+	
 	
 	SDL_WM_SetCaption("Space Maelstrom Transcendence", NULL); // set the window title and icon
 	
@@ -1121,7 +1121,7 @@ void update_hud(Ship player, SDL_Surface* HUD, SDL_Surface* screen)
 		HUD = TTF_RenderText_Solid(font1, HUD_debug_txt.c_str(), WHITE);
 		apply_surface(5, 35, HUD, screen);
 		SDL_FreeSurface(HUD);
-		ss << B1_COOLDOWN << ", " << B2_COOLDOWN;
+		ss << player.b1_cooldown << ", " << player.b2_cooldown;
 		HUD_debug_txt = "COOLDOWN: " + ss.str();
 		ss.str(string());
 		HUD = TTF_RenderText_Solid(font1, HUD_debug_txt.c_str(), WHITE);
@@ -1140,6 +1140,7 @@ Ship::Ship()
 	frame = 0;
 	frame_up = true;
 	hp = 100; score = 0; attack = 10;
+	b1_cooldown = B1_COOLDOWN; b2_cooldown = B2_COOLDOWN;
 }
 
 // Setup the clips of the spritesheet for the ship
@@ -1210,10 +1211,10 @@ void Ship::handle_input()
 		// Negate velocity
 		switch(event.key.keysym.sym)
 		{
-			case SDLK_UP: y_vel += SHIP_HEIGHT / 4; break;
-			case SDLK_DOWN: y_vel -= SHIP_HEIGHT / 4; break;
-			case SDLK_LEFT: x_vel += SHIP_WIDTH / 4; break;
-			case SDLK_RIGHT: x_vel -= SHIP_WIDTH / 4; break;
+			case SDLK_UP: y_vel = 0; break;
+			case SDLK_DOWN: y_vel = 0; break;
+			case SDLK_LEFT: x_vel = 0; break;
+			case SDLK_RIGHT: x_vel = 0; break;
 		}
 	}
 }
