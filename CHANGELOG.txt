@@ -1,3 +1,9 @@
+# v0.46 #
+Added powerups in 4 types: +20 HP, -2 B1 cooldown, -4 B2 cooldown, +1000 points.
+Powerups only collide with players, no other objects, randomly spawned upon enemy death by any cause.
+Non-score powerups have limits, if an attribute is maxed out you gain points instead.
+Can no longer die or apply highscore in debug mode (so no cheating!)
+
 # v0.45 #
 Added animated vortex obstacle: cannot be destroyed, does constant damage on collision, eats bullets, asteroids, debris, enemies
 Simplified set_clips function (used by ship and vortex), added forced wait on highscore display upon death

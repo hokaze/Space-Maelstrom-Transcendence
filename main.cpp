@@ -60,10 +60,12 @@ const int AS1_WIDTH = 50;
 const int AS1_MAX = 20;
 const int AS1_HP = 5;
 const int AS1_ATTACK = 10;
+const int AS1_SCORE = 10;
 const int D1_HEIGHT = 20;
 const int D1_WIDTH = 20;
 const int D1_MAX = AS1_MAX * 4;
 const int D1_ATTACK = 2;
+const int D1_SCORE = 5;
 const int V1_HEIGHT = 46;
 const int V1_WIDTH = 46;
 const int V1_MAX = 3;
@@ -77,11 +79,21 @@ const int E1_MAX = 10;
 const int E1_HP = 10;
 const int E1_ATTACK = 5;
 const int E1_EXPLODE_TIME = MAX_FPS / 4;
+const int E1_SCORE = 50;
 const int B3_WIDTH = 8;
 const int B3_HEIGHT = 12;
 const int B3_SHOTS = 4;
 const int B3_COOLDOWN = 60;
 const int B3_ATTACK = 5;
+
+// Powerups
+const int POW_TYPES = 4;
+const int POW_HEIGHT = 32;
+const int POW_WIDTH = 32;
+const int POW_FIREUP1 = 2;
+const int POW_FIREUP2 = 4;
+const int POW_HEALTHUP = 20;
+const int POW_1000 = 1000;
 
 // Setup surfaces, event system and BGM
 SDL_Surface *title_bg = NULL;
@@ -99,6 +111,10 @@ SDL_Surface *debris = NULL;
 SDL_Surface *enemy1 = NULL;
 SDL_Surface *vortex1 = NULL;
 SDL_Surface *boom1 = NULL;
+SDL_Surface *powerup_health = NULL;
+SDL_Surface *powerup_pew1 = NULL;
+SDL_Surface *powerup_pew2 = NULL;
+SDL_Surface *powerup_1000 = NULL;
 SDL_Surface *background = NULL;
 SDL_Surface *stars = NULL;
 SDL_Surface *planets = NULL;
@@ -203,6 +219,22 @@ class Bullet
 	void die();
 };
 
+class Powerup
+{
+	int xv, yv;
+	int type;
+	
+	public:
+	bool alive;
+	SDL_Rect box;
+	Powerup();
+	void spawn(int x, int y);
+	void update();
+	void show();
+	void die();
+	void apply_effect(Ship& player);
+};
+
 // Basic obstacle, respawns when it passes bottom of screen or dies
 class Asteroid
 {
@@ -253,6 +285,7 @@ class Enemy
 	SDL_Surface *sprite;
 	SDL_Surface *explosion;
 	Bullet b3[B3_SHOTS];
+	Powerup pow;
 	bool alive;
 	Enemy();
 	void spawn();
@@ -279,6 +312,7 @@ class Vortex
 	void show();
 	void die();
 };
+
 
 // Prototype functions
 SDL_Surface *load_image(string filename);
@@ -740,7 +774,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 						// Destroy asteroid and bullet
 						a1[j].damage(b1[i].attack);
 						b1[i].die();
-						player_ship.increase_score(10);
+						player_ship.increase_score(AS1_SCORE);
 					}
 				}
 
@@ -751,7 +785,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					{
 						e1[j].damage(b1[i].attack);
 						b1[i].die();
-						player_ship.increase_score(100);
+						player_ship.increase_score(E1_SCORE);
 						Mix_PlayChannel(-1, break2, 0);
 					}
 				}
@@ -763,7 +797,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					{
 						b1[i].die();
 						d1[j].die();
-						player_ship.increase_score(5);
+						player_ship.increase_score(D1_SCORE);
 					}
 				}
 				
@@ -820,7 +854,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 						// Destroy asteroid and bullet
 						a1[j].damage(b2[i].attack);
 						b2[i].die();
-						player_ship.increase_score(10);
+						player_ship.increase_score(AS1_SCORE);
 					}
 				}
 
@@ -831,7 +865,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					{
 						e1[j].damage(b2[i].attack);
 						b2[i].die();
-						player_ship.increase_score(100);
+						player_ship.increase_score(E1_SCORE);
 						Mix_PlayChannel(-1, break2, 0);
 					}
 				}
@@ -843,7 +877,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					{
 						b2[i].die();
 						d1[j].die();
-						player_ship.increase_score(5);
+						player_ship.increase_score(D1_SCORE);
 					}
 				}
 				
@@ -1032,6 +1066,18 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					}
 				}
 				e1[i].show();
+				
+				// If powerup spawned, update, show and check for collisions with player
+				if (e1[i].pow.alive)
+				{
+					e1[i].pow.update();
+					if (box_collision(e1[i].pow.box, player_ship.box))
+					{
+						e1[i].pow.apply_effect(player_ship);
+						e1[i].pow.die();
+					}
+					e1[i].pow.show();
+				}
 			}
 			
 			// Apply foreground layers
@@ -1042,7 +1088,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 				apply_surface(0, 0, help_popup, screen);
 			}
 			
-			if (player_ship.return_hp() < 1)
+			if ((player_ship.return_hp() < 1) && (DEBUG == false))
 			{
 				apply_surface(0, 0, death_screen, screen);
 				game = false; dead = true;
@@ -1071,7 +1117,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			int pos = 0;
 			string player_name, tmp;
 			
-			SDL_Delay(2000);
+			SDL_Delay(3000);
 			
 			for (int i = 0; i < HIGHSCORE_ENTRIES; i++)
 			{
@@ -1163,7 +1209,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			show_highscores(score_table, HUD_display, screen);
 			
 			SDL_Flip(screen);
-			SDL_Delay(5000);
+			SDL_Delay(3000);
 		}
 	}
 	
@@ -1284,6 +1330,10 @@ bool load_files()
 	debris = load_image("img/asteroid1_debris.png");
 	enemy1 = load_image("img/enemy1.png");
 	vortex1 = load_image("img/vortexsheet.png");
+	powerup_health = load_image("img/powerup_health.png");
+	powerup_pew1 = load_image("img/powerup_pew1.png");
+	powerup_pew2 = load_image("img/powerup_pew2.png");
+	powerup_1000 = load_image("img/powerup_1000.png");
 	background = load_image("img/distant_bg.png");
 	stars = load_image("img/stars.png");
 	planets = load_image("img/planets.png");
@@ -1327,6 +1377,10 @@ void clean_quit()
 	SDL_FreeSurface(enemy1);
 	SDL_FreeSurface(boom1);
 	SDL_FreeSurface(vortex1);
+	SDL_FreeSurface(powerup_health);
+	SDL_FreeSurface(powerup_pew1);
+	SDL_FreeSurface(powerup_pew2);
+	SDL_FreeSurface(powerup_1000);
 	
 	Mix_FreeMusic(bgm1); // free the audio stream
 	Mix_FreeChunk(shot1);
@@ -1994,6 +2048,15 @@ void Enemy::damage(int attack)
 
 void Enemy::die()
 {
+	// 1/4 Chance to randomly spawn a powerup
+	if ((rand()% 4) == 0)
+	{
+		if (pow.alive == false)
+		{
+			pow.spawn(box.x, box.y);
+		}
+	}	
+	
 	alive = false;
 	explosion_x = box.x; explosion_y = box.y;
 	box.x = -1000; box.y = 1000;
@@ -2085,4 +2148,110 @@ void Vortex::die()
 	respawn = false;
 	box.x = -1200; box.y = 1200;
 	xv = 0; yv = 0;
+}
+
+Powerup::Powerup()
+{
+	box.x = -750; box.y = 750;
+	box.w = POW_WIDTH; box.h = POW_HEIGHT;
+	xv = 0; yv = 0;
+	alive = false;
+}
+
+void Powerup::spawn(int x, int y)
+{
+	box.x = x; box.y = y;
+	yv = 1;
+	alive = true;
+	type = rand() % POW_TYPES;
+}
+
+void Powerup::update()
+{
+	if (alive)
+	{
+		box.x += xv;
+		box.y += yv;
+	}
+	
+	if ((box.y > SCREEN_HEIGHT) || (box.y < 0))
+	{
+		die();
+	}
+
+	if (box.x < (0 - box.w / 2))
+	{
+		box.x = SCREEN_WIDTH - (box.w / 2);
+	}
+	else if (box.x > (SCREEN_WIDTH - box.w / 2))
+	{
+		box.x = 0 - (box.w / 2);
+	}
+
+}
+
+void Powerup::show()
+{
+	if (alive)
+	{
+		if (type == 0) {apply_surface(box.x, box.y, powerup_health, screen);}
+		else if (type == 1) {apply_surface(box.x, box.y, powerup_pew1, screen);}
+		else if (type == 2) {apply_surface(box.x, box.y, powerup_pew2, screen);}
+		else if (type == 3) {apply_surface(box.x, box.y, powerup_1000, screen);}
+	}
+}
+
+void Powerup::die()
+{
+	alive = false;
+	yv = 0; xv = 0;
+	box.x = -750; box.y = 750;
+}
+
+void Powerup::apply_effect(Ship &player)
+{
+	// Heal by 20 HP, can apply overheal
+	if (type == 0)
+	{
+		if (player.return_hp() < 81)
+		{
+			player.damage(-POW_HEALTHUP);
+		}
+		else
+		{
+			int healing = 100 - player.return_hp();
+			player.damage(-healing);
+			int overflow = 20 - healing;
+			player.increase_score(overflow * 10);
+		}
+	}
+	// Decreases cooldown of bullet 1
+	else if (type == 1)
+	{
+		if (player.b1_cooldown > 5)
+		{
+			player.b1_cooldown -= POW_FIREUP1;
+		}
+		else
+		{
+			player.increase_score(POW_1000 / 5);
+		}
+	}
+	// Decreases cooldown of bullet 2
+	else if (type == 2)
+	{
+		if (player.b2_cooldown > 10)
+		{
+			player.b2_cooldown -= POW_FIREUP2;
+		}
+		else
+		{
+			player.increase_score(POW_1000 / 5);
+		}
+	}
+	// Increases score
+	else
+	{
+		player.increase_score(POW_1000);
+	}
 }
