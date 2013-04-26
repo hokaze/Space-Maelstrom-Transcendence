@@ -33,7 +33,7 @@ using namespace std;
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
 const int SCREEN_BPP = 32;
-bool DEBUG = true;
+bool DEBUG = false;
 bool FULLSCREEN = false;
 int MAX_FPS = 60;
 const int HIGHSCORE_ENTRIES = 10;
@@ -41,6 +41,8 @@ const int HIGHSCORE_ENTRIES = 10;
 // The dimensions of the ship and its weapons
 const int SHIP_WIDTH = 32;
 const int SHIP_HEIGHT = 32;
+const int SHIP_HP = 100;
+const int SHIP_SPRITES = 7;
 const int B1_WIDTH = 10;
 const int B1_HEIGHT = 12;
 const int B1_SHOTS = 30;
@@ -62,6 +64,11 @@ const int D1_HEIGHT = 20;
 const int D1_WIDTH = 20;
 const int D1_MAX = AS1_MAX * 4;
 const int D1_ATTACK = 2;
+const int V1_HEIGHT = 46;
+const int V1_WIDTH = 46;
+const int V1_MAX = 3;
+const int V1_ATTACK = 1;
+const int V1_SPRITES = 10;
 
 // Enemy related stuff
 const int E1_HEIGHT = 30;
@@ -90,6 +97,7 @@ SDL_Surface *bullet3 = NULL;
 SDL_Surface *asteroid = NULL;
 SDL_Surface *debris = NULL;
 SDL_Surface *enemy1 = NULL;
+SDL_Surface *vortex1 = NULL;
 SDL_Surface *boom1 = NULL;
 SDL_Surface *background = NULL;
 SDL_Surface *stars = NULL;
@@ -113,8 +121,9 @@ Mix_Chunk *menu2 = NULL;
 SDL_Surface *HUD_display = NULL;
 TTF_Font *font1 = NULL;
 
-//The area of the sprite sheet
-SDL_Rect clips_ship[7];
+// Areas for spritesheets
+SDL_Rect clips_ship[SHIP_SPRITES];
+SDL_Rect clips_vortex[V1_SPRITES];
 
 
 struct Background
@@ -253,6 +262,24 @@ class Enemy
 	void die();
 };
 
+// Rift in the fabric of space-time, cannot be killed, deals constant damage
+// to all it touches...including enemies!
+class Vortex
+{
+	int xv, yv;
+	int frame; bool frame_up;
+	
+	public:
+	bool respawn;
+	SDL_Rect box;
+	Vortex();
+	void set_clips();
+	void spawn();
+	void update();
+	void show();
+	void die();
+};
+
 // Prototype functions
 SDL_Surface *load_image(string filename);
 void apply_surface(int x, int y, SDL_Surface* source, SDL_Surface* destination, SDL_Rect* clip = NULL);
@@ -351,6 +378,12 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		}
 	}
 	
+	Vortex v1[V1_MAX];
+	for (int i = 0; i < V1_MAX; i++)
+	{
+		v1[i].set_clips();
+	}
+	
 	player_ship.set_clips();
 	
 	
@@ -358,7 +391,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	{
 		// ugly hack to prevent key presses shortly before reset
 		// from accidentally triggering menu options
-		menu_item = -10;
+		menu_item = -60;
 		menu_action = 0;
 		dead = false;
 		
@@ -434,11 +467,11 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					{
 						view_scores = true;
 					}
-					if (event.key.keysym.sym == SDLK_ESCAPE)
+					/*if (event.key.keysym.sym == SDLK_ESCAPE)
 					{
 						quit = true;
 						menu = false;
-					}
+					}*/
 				}
 				// If the user has closed the program or hit ESC
 				if (event.type == SDL_QUIT)
@@ -510,6 +543,11 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			for (int i = 0; i < E1_MAX; i++)
 			{
 				e1[i].spawn();
+			}
+			
+			for (int i = 0; i < V1_MAX; i++)
+			{
+				v1[i].spawn();
 			}
 			
 			// Attempt to play the music on loop
@@ -728,6 +766,15 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 						player_ship.increase_score(5);
 					}
 				}
+				
+				// Collide with vortex
+				for (int j = 0; j < V1_MAX; j++)
+				{
+					if (box_collision(b1[i].box, v1[j].box))
+					{
+						b1[i].die();
+					}
+				}
 			}
 			
 
@@ -799,6 +846,15 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 						player_ship.increase_score(5);
 					}
 				}
+				
+				// Collide with vortex
+				for (int j = 0; j < V1_MAX; j++)
+				{
+					if (box_collision(b2[i].box, v1[j].box))
+					{
+						b2[i].die();
+					}
+				}
 			}
 
 			// Player weapons are cooling
@@ -854,12 +910,33 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 						d1[j].die();
 					}
 				}
+				
+				// Collide with vortex
+				for (int j = 0; j < V1_MAX; j++)
+				{
+					if (box_collision(a1[i].box, v1[j].box))
+					{
+						a1[i].die();
+					}
+				}
 			}
 
 			// Update scrolling backgrounds
 			update_bg(distant, screen);
 			update_bg(starfield, screen);
 			update_bg(planetoids, screen);
+			
+			// Update, display and handle collisions for vortex objects
+			for (int i = 0; i < V1_MAX; i++)
+			{
+				if (box_collision(v1[i].box, player_ship.box))
+				{
+					player_ship.damage(V1_ATTACK);
+				}
+					
+				v1[i].update();
+				v1[i].show();
+			}
 			
 			// Display player bullets
 			for (int i = 0; i < B1_SHOTS; i++)
@@ -877,11 +954,23 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			for (int i = 0; i < D1_MAX; i++)
 			{
 				d1[i].update();
+				
+				// hit player
 				if (box_collision(d1[i].box, player_ship.box))
 				{
 					player_ship.damage(d1[i].attack);
 					d1[i].die();
 				}
+				
+				// hit vortex
+				for (int j = 0; j < V1_MAX; j++)
+				{
+					if (box_collision(d1[i].box, v1[j].box))
+					{
+						d1[i].die();
+					}
+				}
+				
 				d1[i].show();
 			}
 			
@@ -918,15 +1007,29 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 						e1[i].b3[j].die();
 						player_ship.damage(e1[i].b3[j].attack);
 					}
+					for (int k = 0; k < V1_MAX; k++)
+					{
+						if (box_collision(v1[k].box, e1[i].b3[j].box))
+						{
+							e1[i].b3[j].die();
+						}
+					}
 					e1[i].b3[j].show();	
 				}
-				// Weapon cools down, enemy moves, check for collision with player, then display
+				// Weapon cools down, enemy moves, check for collision with player or vortex, then display
 				e1[i].b3_cooldown--;
 				e1[i].update();
 				if (box_collision(player_ship.box, e1[i].box))
 				{
 					player_ship.damage(e1[i].attack);
 					e1[i].damage(player_ship.attack);
+				}
+				for (int j = 0; j < V1_MAX; j++)
+				{
+					if (box_collision(v1[j].box, e1[i].box))
+					{
+						e1[i].damage(V1_ATTACK);
+					}
 				}
 				e1[i].show();
 			}
@@ -1060,6 +1163,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			show_highscores(score_table, HUD_display, screen);
 			
 			SDL_Flip(screen);
+			SDL_Delay(5000);
 		}
 	}
 	
@@ -1179,6 +1283,7 @@ bool load_files()
 	boom1 = load_image("img/boom1.png");
 	debris = load_image("img/asteroid1_debris.png");
 	enemy1 = load_image("img/enemy1.png");
+	vortex1 = load_image("img/vortexsheet.png");
 	background = load_image("img/distant_bg.png");
 	stars = load_image("img/stars.png");
 	planets = load_image("img/planets.png");
@@ -1221,6 +1326,7 @@ void clean_quit()
 	SDL_FreeSurface(debris);
 	SDL_FreeSurface(enemy1);
 	SDL_FreeSurface(boom1);
+	SDL_FreeSurface(vortex1);
 	
 	Mix_FreeMusic(bgm1); // free the audio stream
 	Mix_FreeChunk(shot1);
@@ -1436,48 +1542,20 @@ Ship::Ship()
 	x_vel = 0; y_vel = 0;
 	frame = 0;
 	frame_up = true;
-	hp = 100; score = 0; attack = 10;
+	hp = SHIP_HP; score = 0; attack = 10;
 	b1_cooldown = B1_COOLDOWN; b2_cooldown = B2_COOLDOWN;
 }
 
 // Setup the clips of the spritesheet for the ship
 void Ship::set_clips()
-{
-    //Clip the sprites
-    clips_ship[ 0 ].x = 0;
-    clips_ship[ 0 ].y = 0;
-    clips_ship[ 0 ].w = SHIP_WIDTH;
-    clips_ship[ 0 ].h = SHIP_HEIGHT;
-
-    clips_ship[ 1 ].x = SHIP_WIDTH;
-    clips_ship[ 1 ].y = 0;
-    clips_ship[ 1 ].w = SHIP_WIDTH;
-    clips_ship[ 1 ].h = SHIP_HEIGHT;
-
-    clips_ship[ 2 ].x = SHIP_WIDTH * 2;
-    clips_ship[ 2 ].y = 0;
-    clips_ship[ 2 ].w = SHIP_WIDTH;
-    clips_ship[ 2 ].h = SHIP_HEIGHT;
-
-    clips_ship[ 3 ].x = SHIP_WIDTH * 3;
-    clips_ship[ 3 ].y = 0;
-    clips_ship[ 3 ].w = SHIP_WIDTH;
-    clips_ship[ 3 ].h = SHIP_HEIGHT;
-
-    clips_ship[ 4 ].x = SHIP_WIDTH * 4;
-    clips_ship[ 4 ].y = 0;
-    clips_ship[ 4 ].w = SHIP_WIDTH;
-    clips_ship[ 4 ].h = SHIP_HEIGHT;
-
-    clips_ship[ 5 ].x = SHIP_WIDTH * 5;
-    clips_ship[ 5 ].y = 0;
-    clips_ship[ 5 ].w = SHIP_WIDTH;
-    clips_ship[ 5 ].h = SHIP_HEIGHT;
-
-    clips_ship[ 6 ].x = SHIP_WIDTH * 6;
-    clips_ship[ 6 ].y = 0;
-    clips_ship[ 6 ].w = SHIP_WIDTH;
-    clips_ship[ 6 ].h = SHIP_HEIGHT;
+{	
+	for (int i = 0; i < SHIP_SPRITES; i++)
+	{
+		clips_ship[ i ].x = SHIP_WIDTH * i;
+		clips_ship[ i ].y = 0;
+		clips_ship[ i ].w = SHIP_WIDTH;
+		clips_ship[ i ].h = SHIP_HEIGHT;
+	}
 }
 
 // Our keyboard input handler, uses switch case to make things a bit tidier than if/else.
@@ -1608,7 +1686,7 @@ void Ship::reset_state()
 	x_vel = 0; y_vel = 0;
 	frame = 0;
 	frame_up = true;
-	hp = 100; score = 0; attack = 10;
+	hp = SHIP_HP; score = 0; attack = 10;
 	b1_cooldown = B1_COOLDOWN; b2_cooldown = B2_COOLDOWN;	
 }
 
@@ -1759,7 +1837,6 @@ void Asteroid::update()
 	{
 		box.x = 0 - (box.w / 2);
 	}
-
 }
 
 void Asteroid::show()
@@ -1923,4 +2000,89 @@ void Enemy::die()
 	xv = 0; yv = 0;
 	spawn(); // spawn new enemies
 	explosion_timer = E1_EXPLODE_TIME;
+}
+
+Vortex::Vortex()
+{
+	box.w = V1_WIDTH; box.h = V1_HEIGHT;
+	box.x = -1200; box.y = 1200;
+	xv = 0; yv = 0;
+	frame = 0; frame_up = true;
+}
+
+void Vortex::set_clips()
+{
+	for (int i = 0; i < V1_SPRITES; i++)
+	{
+		clips_vortex[ i ].x = V1_WIDTH * i;
+		clips_vortex[ i ].y = 0;
+		clips_vortex[ i ].w = V1_WIDTH;
+		clips_vortex[ i ].h = V1_HEIGHT;
+	}
+}
+
+void Vortex::spawn()
+{
+	box.x = 50; box.y = 50;
+	box.x = rand() % SCREEN_WIDTH; 
+	box.y = rand() % 200 - SCREEN_HEIGHT; 
+	yv = 1;
+	respawn = true;
+}
+
+void Vortex::update()
+{
+	box.x += xv;
+	box.y += yv;
+	
+	if ((box.y > SCREEN_HEIGHT))
+	{
+		if (respawn)
+		{
+			spawn();
+		}
+		else
+		{
+			die();
+		}
+	}
+	
+	if (box.x < (0 - box.w / 2))
+	{
+		box.x = SCREEN_WIDTH - (box.w / 2);
+	}
+	else if (box.x > (SCREEN_WIDTH - box.w / 2))
+	{
+		box.x = 0 - (box.w / 2);
+	}	
+}
+
+void Vortex::show()
+{
+	apply_surface(box.x, box.y, vortex1, screen, &clips_vortex[frame]);
+	
+	if (frame >= 9)
+	{
+		frame_up = false;
+	}
+	else if (frame <= 0)
+	{
+		frame_up = true;
+	}
+	
+	if (frame_up == true)
+	{
+		frame++;
+	}
+	else
+	{
+		frame--;
+	}
+}
+
+void Vortex::die()
+{
+	respawn = false;
+	box.x = -1200; box.y = 1200;
+	xv = 0; yv = 0;
 }

@@ -1,3 +1,7 @@
+# v0.45 #
+Added animated vortex obstacle: cannot be destroyed, does constant damage on collision, eats bullets, asteroids, debris, enemies
+Simplified set_clips function (used by ship and vortex), added forced wait on highscore display upon death
+
 # v0.44 #
 Highscores now save to file, slight tweaks to asteroid and enemy spawn area, elimination of some magic numbers.
 Loop now works so that you can exit the game (with ESC or death) and return to the menu. Somewhat buggy.
