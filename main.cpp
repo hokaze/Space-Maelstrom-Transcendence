@@ -36,6 +36,7 @@ const int SCREEN_BPP = 32;
 bool DEBUG = true;
 bool FULLSCREEN = false;
 int MAX_FPS = 60;
+const int HIGHSCORE_ENTRIES = 10;
 
 // The dimensions of the ship and its weapons
 const int SHIP_WIDTH = 32;
@@ -153,6 +154,7 @@ class Ship
 	void increase_score(int points);
 	int return_hp();
 	int return_score();
+	void reset_state();
 };
 
 // The timer - used for capping fps and could be adapted to give certain objects
@@ -261,6 +263,7 @@ void update_bg(Background& bg, SDL_Surface* display);
 bool box_collision(SDL_Rect A, SDL_Rect B);
 void update_hud(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
 void load_highscores(Highscore table[]);
+void save_highscores(Highscore table[]);
 void show_highscores(Highscore table[], SDL_Surface* HUD, SDL_Surface* screen);
 void bubble_sort_scores(Highscore table[]);
 
@@ -296,8 +299,8 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		return 1;
 	}
 	
-	bool quit = false, dead = false; // quit/death flags
-	Highscore score_table[10]; // highscores has 10 entries
+	bool quit = false, game = false, dead = false; // quit/death flags
+	Highscore score_table[HIGHSCORE_ENTRIES]; // highscores has 10 entries
 	bool menu = true; bool help = false; bool view_scores = false;
 	int menu_item  = 0; int menu_action = 0;
 	srand(time(NULL)); // initialise random seed
@@ -307,141 +310,10 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	load_highscores(score_table);
 	
 	// DEBUG
-	/*for (int i = 0; i < 10; i++)
+	/*for (int i = 0; i < HIGHSCORE_ENTRIES; i++)
 	{
 		cout << score_table[i].pos << " " << score_table[i].name << " " << score_table[i].score << endl;
 	}*/
-	
-	// Main menu
-	while (menu)
-	{
-		if (SDL_PollEvent(&event))
-		{
-			if (event.type = SDL_KEYDOWN)
-			{
-				if (help)
-				{
-					help = false;
-				}
-				if (view_scores)
-				{
-					view_scores = false;
-				}
-				if (event.key.keysym.sym == SDLK_UP)
-				{
-					if (menu_item > 0)
-					{
-						menu_item--;
-						menu_action = 1;
-					}
-				}
-				if (event.key.keysym.sym == SDLK_DOWN)
-				{
-					if (menu_item < 6)
-					{
-						menu_item++;
-						menu_action = 1;
-					}
-				}
-				if ((event.key.keysym.sym == SDLK_z) || (event.key.keysym.sym == SDLK_RETURN))
-				{
-					if (menu_item == 0)
-					{
-						menu = false;
-						menu_action = 2;
-					}
-					else if (menu_item == 2)
-					{
-						view_scores = true;
-						menu_action = 2;
-					}
-					else if (menu_item == 4)
-					{
-						help = true;
-						menu_action = 2;
-					}
-					else if (menu_item == 6)
-					{
-						menu = false;
-						quit = true;
-					}
-				}
-				if (event.key.keysym.sym == SDLK_F1)
-				{
-					help = true;
-				}
-				if (event.key.keysym.sym == SDLK_F2)
-				{
-					menu = false;
-				}
-				if (event.key.keysym.sym == SDLK_F3)
-				{
-					view_scores = true;
-				}
-				if (event.key.keysym.sym == SDLK_ESCAPE)
-				{
-					quit = true;
-					menu = false;
-				}
-			}
-			// If the user has closed the program or hit ESC
-			if (event.type == SDL_QUIT)
-			{
-				quit = true;
-				menu = false;
-			}
-		}
-		
-		// Play menu sound effects
-		if (menu_action == 1)
-		{
-			Mix_PlayChannel(-1, menu1, 0);
-		}
-		if (menu_action == 2)
-		{
-			Mix_PlayChannel(-1, menu2, 0);
-		}
-		
-		menu_action = 0;
-		
-		// Draw to display
-		apply_surface(0, 0, title_bg, screen);
-		if (menu_item == 0)
-		{
-			apply_surface(0, 205, title_selection, screen);
-		}
-		else if (menu_item == 2)
-		{
-			apply_surface(0, 270, title_selection, screen);
-		}
-		else if (menu_item == 4)
-		{
-			apply_surface(0, 335, title_selection, screen);
-		}
-		else if (menu_item == 6)
-		{
-			apply_surface(0, 400, title_selection, screen);
-		}
-
-		if (help)
-		{
-			apply_surface(0, 0, help_popup, screen);
-		}
-		
-		if (view_scores)
-		{
-			apply_surface(0, 0, highscore_popup, screen);
-			show_highscores(score_table, HUD_display, screen);
-		}
-
-		SDL_Flip(screen); // update screen
-		
-		// Cap the frame rate to our specified maximum fps
-		if(fps.get_time() < 1000 / MAX_FPS)
-		{
-			SDL_Delay((1000 / MAX_FPS) - fps.get_time());
-		}
-	}
 	
 	// Setup backgrounds
 	Background distant = {0, 0, 1, background};
@@ -479,561 +351,716 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		}
 	}
 	
-	for (int i = 0; i < AS1_MAX; i++)
-	{
-		a1[i].spawn();
-	}
-	
-	for (int i = 0; i < E1_MAX; i++)
-	{
-		e1[i].spawn();
-	}
-	
 	player_ship.set_clips();
 	
-	// Attempt to play the music on loop
-	if (Mix_PlayMusic(bgm1, -1) == -1)
-	{
-		return 1;
-	}
 	
-	// While the user hasn't quit, control fps and input events
-	while((quit == false) && (dead == false))
+	while (quit == false)
 	{
-		fps.start(); // start timer
+		// ugly hack to prevent key presses shortly before reset
+		// from accidentally triggering menu options
+		menu_item = -10;
+		menu_action = 0;
+		dead = false;
 		
-		while (help)
+		// Main menu
+		while (menu)
 		{
+			if (menu_item < 0) // delay valid item selection for a frame or 10...
+			{
+				menu_item++;
+			}
 			if (SDL_PollEvent(&event))
 			{
-				//if ((event.key.keysym.sym == SDLK_z) || (event.key.keysym.sym == SDLK_RETURN) || (event.key.keysym.sym == SDLK_x))
-				if (event.type == SDL_KEYDOWN)
+				if (event.type = SDL_KEYDOWN)
 				{
-					help = false;
-				}
-			}
-		}
-		
-		// While there's events...
-		if (SDL_PollEvent(&event))
-		{
-			player_ship.handle_input(); // check input for the ship
-			
-			if (event.type == SDL_KEYDOWN)
-			{
-				if (event.key.keysym.sym == SDLK_z) // keydown for bullet 1
-				{
-					b1_firing = true;
-				}
-				if (event.key.keysym.sym == SDLK_x) // keydown for bullet 2
-				{
-					b2_firing = true;
-				}
-				// DEBUG MODE CODE - Control gamestate with keycodes
-				if (DEBUG)
-				{
-					if (event.key.keysym.sym == SDLK_KP_PLUS) // increment framerate on keypad + press
+					if (help)
 					{
-						if (MAX_FPS < 300)
+						help = false;
+					}
+					if (view_scores)
+					{
+						view_scores = false;
+					}
+					if (event.key.keysym.sym == SDLK_UP)
+					{
+						if (menu_item > 0)
 						{
-							MAX_FPS += 10;
+							menu_item--;
+							menu_action = 1;
 						}
 					}
-					if (event.key.keysym.sym == SDLK_KP_MINUS) // decrement framerate on keypad - press
+					if (event.key.keysym.sym == SDLK_DOWN)
 					{
-						if (MAX_FPS > 10)
+						if (menu_item < 6)
 						{
-							MAX_FPS -= 10;
+							menu_item++;
+							menu_action = 1;
 						}
 					}
-					if (event.key.keysym.sym == SDLK_a) // enable bullet 1 autofire
+					if ((event.key.keysym.sym == SDLK_z) || (event.key.keysym.sym == SDLK_RETURN))
 					{
-						b1_firing = true;
-					}
-					if (event.key.keysym.sym == SDLK_s) // enable bullet 2 autofire
-					{
-						b2_firing = true;
-					}
-					if (event.key.keysym.sym == SDLK_PAGEDOWN) // decrease bullet cooldown
-					{
-						if (player_ship.b1_cooldown > 1)
+						if (menu_item == 0)
 						{
-							player_ship.b1_cooldown -= 2;
-							player_ship.b2_cooldown -= 4;
+							menu = false;
+							game = true;
+							menu_action = 2;
+						}
+						else if (menu_item == 2)
+						{
+							view_scores = true;
+							menu_action = 2;
+						}
+						else if (menu_item == 4)
+						{
+							help = true;
+							menu_action = 2;
+						}
+						else if (menu_item == 6)
+						{
+							menu = false;
+							quit = true;
 						}
 					}
-					if (event.key.keysym.sym == SDLK_PAGEUP) // increase bullet cooldown
+					if (event.key.keysym.sym == SDLK_F1)
 					{
-						if (player_ship.b1_cooldown < 59)
-						{
-							player_ship.b1_cooldown += 2;
-							player_ship.b2_cooldown += 4;
-						}
+						help = true;
+					}
+					if (event.key.keysym.sym == SDLK_F2)
+					{
+						game = true;
+						menu = false;
+					}
+					if (event.key.keysym.sym == SDLK_F3)
+					{
+						view_scores = true;
+					}
+					if (event.key.keysym.sym == SDLK_ESCAPE)
+					{
+						quit = true;
+						menu = false;
 					}
 				}
-				// Press F1 to get help
-				if (event.key.keysym.sym == SDLK_F1)
-				{
-					help = true;
-				}
-				if (event.key.keysym.sym == SDLK_ESCAPE)
+				// If the user has closed the program or hit ESC
+				if (event.type == SDL_QUIT)
 				{
 					quit = true;
-				}
-			}
-
-			else if (event.type == SDL_KEYUP)
-			{
-				if (event.key.keysym.sym == SDLK_z) // keyup for bullet 1
-				{
-					b1_firing = false;
-				}
-				if (event.key.keysym.sym == SDLK_x) // keyup for bullet 2
-				{
-					b2_firing = false;
+					menu = false;
 				}
 			}
 			
-			// If the user has closed the program or hit ESC
-			if(event.type == SDL_QUIT)
+			// Play menu sound effects
+			if (menu_action == 1)
 			{
-				quit = true;
+				Mix_PlayChannel(-1, menu1, 0);
 			}
-		}
-		
-		player_ship.move(); // calculate ship's position
-
-		// Firing for player bullet type 1
-		if ((b1_firing == true) && (b1_cooldown < 1))
-		{
-			for (int i = 0; i < B1_SHOTS; i++)
+			if (menu_action == 2)
 			{
-				if (b1[i].alive == false)
-				{
-					b1[i].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B1_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), 0, -10, B1_WIDTH, B1_HEIGHT);
-					Mix_PlayChannel(-1, shot1, 0);
-					break;
-				}
-			}
-			b1_cooldown = player_ship.b1_cooldown;
-		}
-
-		// Firing for player bullet type 2
-		if ((b2_firing == true) && (b2_cooldown < 1))
-		{
-			for (int i = 0; i < B2_SHOTS; i++)
-			{
-				if (b2[i].alive == false)
-				{
-					b2[i].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), 1, -10, B2_WIDTH, B2_HEIGHT);
-					b2[i+1].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), -1, -10, B2_WIDTH, B2_HEIGHT);
-					b2[i+2].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), 2, -10, B2_WIDTH, B2_HEIGHT);
-					b2[i+3].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), -2, -10, B2_WIDTH, B2_HEIGHT);
-					Mix_PlayChannel(-1, shot2, 0);
-					break;
-				}
-			}
-			b2_cooldown = player_ship.b2_cooldown;
-		}
-
-		// Update array for player bullet type 1
-		for (int i = 0; i < B1_SHOTS; i++)
-		{
-			b1[i].update();
-
-			for (int j = 0; j < AS1_MAX; j++)
-			{
-				if (box_collision(b1[i].box, a1[j].box)) // lazy box collision between bullet and asteroid
-				{
-					int debris_spawned = 0;
-					// Generate debris exploding in an "X" formation
-					for (int k = 0; k < D1_MAX; k++)
-					{
-						if (d1[k].alive == false)
-						{
-							if (debris_spawned == 0)
-							{
-								d1[k].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv+3, a1[j].yv-5);
-							}
-							else if (debris_spawned == 1)
-							{
-								d1[k+1].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv-3, a1[j].yv-5);
-							}
-							else if (debris_spawned == 2)
-							{
-								d1[k+2].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv+3, a1[j].yv-10);
-							}
-							else if (debris_spawned == 3)
-							{
-								d1[k+3].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv-3, a1[j].yv-10);
-							}
-							else
-							{
-								break;
-							}
-							debris_spawned++;
-						}
-					}
-					Mix_PlayChannel(-1, break1, 0);
-					// Destroy asteroid and bullet
-					a1[j].damage(b1[i].attack);
-					b1[i].die();
-					player_ship.increase_score(10);
-				}
-			}
-
-			// Collide with enemies
-			for (int j = 0; j < E1_MAX; j++)
-			{
-				if (box_collision(b1[i].box, e1[j].box))
-				{
-					e1[j].damage(b1[i].attack);
-					b1[i].die();
-					player_ship.increase_score(100);
-					Mix_PlayChannel(-1, break2, 0);
-				}
-			}
-
-			// Collide with debris
-			for (int j = 0; j < D1_MAX; j++)
-			{
-				if (box_collision(b1[i].box, d1[j].box))
-				{
-					b1[i].die();
-					d1[j].die();
-					player_ship.increase_score(5);
-				}
-			}
-		}
-		
-
-		// Update array for player bullet type 2
-		for (int i = 0; i < B2_SHOTS; i++)
-		{
-			b2[i].update();
-
-			for (int j = 0; j < AS1_MAX; j++)
-			{
-				if (box_collision(b2[i].box, a1[j].box))
-				{
-					int debris_spawned = 0;
-					// Generate debris exploding in an "X" formation
-					for (int k = 0; k < D1_MAX; k++)
-					{
-						if (d1[k].alive == false)
-						{
-							if (debris_spawned == 0)
-							{
-								d1[k].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv+3, a1[j].yv-5);
-							}
-							else if (debris_spawned == 1)
-							{
-								d1[k+1].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv-3, a1[j].yv-5);
-							}
-							else if (debris_spawned == 2)
-							{
-								d1[k+2].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv+3, a1[j].yv-10);
-							}
-							else if (debris_spawned == 3)
-							{
-								d1[k+3].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv-3, a1[j].yv-10);
-							}
-							else
-							{
-								break;
-							}
-							debris_spawned++;
-						}
-					}
-					Mix_PlayChannel(-1, break1, 0);
-					// Destroy asteroid and bullet
-					a1[j].damage(b2[i].attack);
-					b2[i].die();
-					player_ship.increase_score(10);
-				}
-			}
-
-			// Collide with enemies
-			for (int j = 0; j < E1_MAX; j++)
-			{
-				if (box_collision(b2[i].box, e1[j].box))
-				{
-					e1[j].damage(b2[i].attack);
-					b2[i].die();
-					player_ship.increase_score(100);
-					Mix_PlayChannel(-1, break2, 0);
-				}
-			}
-
-			// Collide with debris
-			for (int j = 0; j < D1_MAX; j++)
-			{
-				if (box_collision(b2[i].box, d1[j].box))
-				{
-					b2[i].die();
-					d1[j].die();
-					player_ship.increase_score(5);
-				}
-			}
-		}
-
-		// Player weapons are cooling
-		b1_cooldown--;
-		b2_cooldown--;
-		
-		// Asteroid collisions
-		for (int i = 0; i < AS1_MAX; i++)
-		{
-			if (box_collision(player_ship.box, a1[i].box)) // lazy box collision between ship and asteroid
-			{
-				int debris_spawned = 0;
-				// Generate debris exploding in an "X" formation
-				for (int j = 0; j < D1_MAX; j++)
-				{
-					if (d1[j].alive == false)
-					{
-						if (debris_spawned == 0)
-						{
-							d1[j].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), a1[i].xv+3, a1[i].yv-5);
-						}
-						else if (debris_spawned == 1)
-						{
-							d1[j+1].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), a1[i].xv-3, a1[i].yv-5);
-						}
-						else if (debris_spawned == 2)
-						{
-							d1[j+2].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), a1[i].xv+3, a1[i].yv-10);
-						}
-						else if (debris_spawned == 3)
-						{
-							d1[j+3].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), a1[i].xv-3, a1[i].yv-10);
-						}
-						else
-						{
-							break;
-						}
-						debris_spawned++;
-					}
-				}
-				Mix_PlayChannel(-1, break1, 0);
-				// Update ship health and the HUD string
-				player_ship.damage(a1[i].attack);
-				a1[i].die();
-			}
-
-			// Asteroids collide with debris
-			for (int j = 0; j < D1_MAX; j++)
-			{
-				if (box_collision(a1[i].box, d1[j].box))
-				{
-					a1[i].damage(d1[j].attack);
-					d1[j].die();
-				}
-			}
-		}
-
-		// Update scrolling backgrounds
-		update_bg(distant, screen);
-		update_bg(starfield, screen);
-		update_bg(planetoids, screen);
-		
-		// Display player bullets
-		for (int i = 0; i < B1_SHOTS; i++)
-		{
-			b1[i].show();
-		}
-		for (int i = 0; i < B2_SHOTS; i++)
-		{
-			b2[i].show();
-		}
-		
-		player_ship.show(); // display the ship's current position
-		
-		// Update AND display asteroid debris
-		for (int i = 0; i < D1_MAX; i++)
-		{
-			d1[i].update();
-			if (box_collision(d1[i].box, player_ship.box))
-			{
-				player_ship.damage(d1[i].attack);
-				d1[i].die();
-			}
-			d1[i].show();
-		}
-		
-		// Update AND display asteroids
-		for (int i = 0; i < AS1_MAX; i++)
-		{
-			a1[i].update();
-			a1[i].show();
-		}
-		
-		// Enemies move, fire, display
-		for (int i = 0; i< E1_MAX; i++)
-		{
-			if (e1[i].b3_cooldown < 1)
-			{
-				// Enemy bullets fire downwards
-				for (int j = 0; j < B3_SHOTS; j++)
-				{
-					if (e1[i].b3[j].alive == false)
-					{
-						e1[i].b3[j].fire(e1[i].box.x + (e1[i].box.w / 2) - (B3_WIDTH / 2), e1[i].box.y + (e1[i].box.h / 2), 0, 5, B3_WIDTH, B3_HEIGHT);
-						Mix_PlayChannel(-1, shot3, 0);
-						break;
-					}
-				}
-				e1[i].b3_cooldown = B3_COOLDOWN;
-			}
-			// Update enemy bullets and display
-			for (int j = 0; j < B3_SHOTS; j++)
-			{
-				e1[i].b3[j].update();
-				if (box_collision(player_ship.box, e1[i].b3[j].box)) // lazy box collision between ship and enemy bullets
-				{
-					e1[i].b3[j].die();
-					player_ship.damage(e1[i].b3[j].attack);
-				}
-				e1[i].b3[j].show();	
-			}
-			// Weapon cools down, enemy moves, check for collision with player, then display
-			e1[i].b3_cooldown--;
-			e1[i].update();
-			if (box_collision(player_ship.box, e1[i].box))
-			{
-				player_ship.damage(e1[i].attack);
-				e1[i].damage(player_ship.attack);
-			}
-			e1[i].show();
-		}
-		
-		// Apply foreground layers
-		update_bg(nebula, screen);
-		update_hud(player_ship, HUD_display, screen);
-		if (help)
-		{
-			apply_surface(0, 0, help_popup, screen);
-		}
-		
-		if (player_ship.return_hp() < 1)
-		{
-			apply_surface(0, 0, death_screen, screen);
-			quit = true; dead = true;
-		}
-		
-		// Update the screen, if unable to do so, return 1
-		if( SDL_Flip( screen ) == -1 )
-		{
-			return 1;
-		}
-		
-		// Cap the frame rate to our specified maximum fps
-		if(fps.get_time() < 1000 / MAX_FPS)
-		{
-			SDL_Delay((1000 / MAX_FPS) - fps.get_time());
-		}
-	}
-	
-	// Handle player death
-	if (dead)
-	{
-		bool new_high = false, name_entry = false;
-		int pos = 0;
-		string player_name, tmp;
-		
-		Mix_HaltMusic();
-		SDL_Delay(2000);
-		
-		for (int i = 0; i < 10; i++)
-		{
-			if (player_ship.return_score() > score_table[i].score)
-			{
-				new_high = true;
-				pos = score_table[i].pos;
-				//cout << player_ship.return_score() << endl << pos << endl;
-				break;
-			}
-		}
-		
-		if (new_high)
-		{
-			apply_surface(0, 0, enterscore_popup, screen);
-			name_entry = true;
-			SDL_EnableUNICODE(SDL_ENABLE);
-			SDL_FreeSurface(HUD_display);
-			player_name = " ";
-			HUD_display = TTF_RenderText_Solid(font1, player_name.c_str(), BLACK);
-			SDL_Flip(screen);
-		}
-		
-		while (name_entry)
-		{
-			
-			if (SDL_PollEvent(&event))
-			{
-				if( event.type == SDL_KEYDOWN )
-				{
-					tmp = player_name;
-					
-					// Add in any character typed, so long as less than 20 characters
-					if ((player_name.length() < 20) && (event.key.keysym.sym != SDLK_BACKSPACE) && (event.key.keysym.sym != SDLK_RETURN))
-					{
-						player_name += (char)event.key.keysym.unicode;
-					}
-					
-					// Delete characters with backspace
-					if ((player_name.length() > 1) && (event.key.keysym.sym == SDLK_BACKSPACE))
-					{
-						player_name.erase(player_name.length() - 1);
-					}
-					
-					SDL_FreeSurface(HUD_display);
-					HUD_display = TTF_RenderText_Solid(font1, player_name.c_str(), BLACK);
-					
-					// Finish name entry
-					if ((event.key.keysym.sym == SDLK_RETURN) && (player_name.length() > 1))
-					{
-						name_entry = false;
-						SDL_EnableUNICODE(SDL_DISABLE);
-						player_name.erase(0, 1);
-					}
-				}
+				Mix_PlayChannel(-1, menu2, 0);
 			}
 			
-			// Centre text
-			apply_surface(0, 0, enterscore_popup, screen);
-			apply_surface((SCREEN_WIDTH - HUD_display->w ) / 2, (SCREEN_HEIGHT - HUD_display->h) / 2, HUD_display, screen);
+			menu_action = 0;
 			
-			SDL_Flip(screen);
-		
+			// Draw to display
+			apply_surface(0, 0, title_bg, screen);
+			if (menu_item == 0)
+			{
+				apply_surface(0, 205, title_selection, screen);
+			}
+			else if (menu_item == 2)
+			{
+				apply_surface(0, 270, title_selection, screen);
+			}
+			else if (menu_item == 4)
+			{
+				apply_surface(0, 335, title_selection, screen);
+			}
+			else if (menu_item == 6)
+			{
+				apply_surface(0, 400, title_selection, screen);
+			}
+
+			if (help)
+			{
+				apply_surface(0, 0, help_popup, screen);
+			}
+			
+			if (view_scores)
+			{
+				apply_surface(0, 0, highscore_popup, screen);
+				show_highscores(score_table, HUD_display, screen);
+			}
+
+			SDL_Flip(screen); // update screen
+			
+			// Cap the frame rate to our specified maximum fps
 			if(fps.get_time() < 1000 / MAX_FPS)
 			{
 				SDL_Delay((1000 / MAX_FPS) - fps.get_time());
 			}
 		}
 		
-		if (player_name.length() > 0)
+		
+		if (game == true)
 		{
-			//cout << pos << " " << player_name << " " << player_ship.return_score() << endl;
-			
-			score_table[9].pos = 9;
-			score_table[9].name = player_name;
-			score_table[9].score = player_ship.return_score();
-			
-			bubble_sort_scores(score_table);
-			
-			for (int i = 0; i < 10; i++)
+			for (int i = 0; i < AS1_MAX; i++)
 			{
-				score_table[i].pos = i + 1;
+				a1[i].spawn();
+			}
+			
+			for (int i = 0; i < E1_MAX; i++)
+			{
+				e1[i].spawn();
+			}
+			
+			// Attempt to play the music on loop
+			if (Mix_PlayMusic(bgm1, -1) == -1)
+			{
+				return 1;
+			}
+			
+			player_ship.reset_state();
+		}
+		
+		// While the user hasn't quit, control fps and input events
+		while((game == true) && (dead == false))
+		{
+			fps.start(); // start timer
+			
+			while (help)
+			{
+				if (SDL_PollEvent(&event))
+				{
+					//if ((event.key.keysym.sym == SDLK_z) || (event.key.keysym.sym == SDLK_RETURN) || (event.key.keysym.sym == SDLK_x))
+					if (event.type == SDL_KEYDOWN)
+					{
+						help = false;
+					}
+				}
+			}
+			
+			// While there's events...
+			if (SDL_PollEvent(&event))
+			{
+				player_ship.handle_input(); // check input for the ship
+				
+				if (event.type == SDL_KEYDOWN)
+				{
+					if (event.key.keysym.sym == SDLK_z) // keydown for bullet 1
+					{
+						b1_firing = true;
+					}
+					if (event.key.keysym.sym == SDLK_x) // keydown for bullet 2
+					{
+						b2_firing = true;
+					}
+					// DEBUG MODE CODE - Control gamestate with keycodes
+					if (DEBUG)
+					{
+						if (event.key.keysym.sym == SDLK_KP_PLUS) // increment framerate on keypad + press
+						{
+							if (MAX_FPS < 300)
+							{
+								MAX_FPS += 10;
+							}
+						}
+						if (event.key.keysym.sym == SDLK_KP_MINUS) // decrement framerate on keypad - press
+						{
+							if (MAX_FPS > 10)
+							{
+								MAX_FPS -= 10;
+							}
+						}
+						if (event.key.keysym.sym == SDLK_a) // enable bullet 1 autofire
+						{
+							b1_firing = true;
+						}
+						if (event.key.keysym.sym == SDLK_s) // enable bullet 2 autofire
+						{
+							b2_firing = true;
+						}
+						if (event.key.keysym.sym == SDLK_PAGEDOWN) // decrease bullet cooldown
+						{
+							if (player_ship.b1_cooldown > 1)
+							{
+								player_ship.b1_cooldown -= 2;
+								player_ship.b2_cooldown -= 4;
+							}
+						}
+						if (event.key.keysym.sym == SDLK_PAGEUP) // increase bullet cooldown
+						{
+							if (player_ship.b1_cooldown < 59)
+							{
+								player_ship.b1_cooldown += 2;
+								player_ship.b2_cooldown += 4;
+							}
+						}
+					}
+					// Press F1 to get help
+					if (event.key.keysym.sym == SDLK_F1)
+					{
+						help = true;
+					}
+					if (event.key.keysym.sym == SDLK_ESCAPE)
+					{
+						game = false;
+					}
+				}
+
+				else if (event.type == SDL_KEYUP)
+				{
+					if (event.key.keysym.sym == SDLK_z) // keyup for bullet 1
+					{
+						b1_firing = false;
+					}
+					if (event.key.keysym.sym == SDLK_x) // keyup for bullet 2
+					{
+						b2_firing = false;
+					}
+				}
+				
+				// If the user has closed the program or hit ESC
+				if(event.type == SDL_QUIT)
+				{
+					quit = true;
+				}
+			}
+			
+			player_ship.move(); // calculate ship's position
+
+			// Firing for player bullet type 1
+			if ((b1_firing == true) && (b1_cooldown < 1))
+			{
+				for (int i = 0; i < B1_SHOTS; i++)
+				{
+					if (b1[i].alive == false)
+					{
+						b1[i].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B1_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), 0, -10, B1_WIDTH, B1_HEIGHT);
+						Mix_PlayChannel(-1, shot1, 0);
+						break;
+					}
+				}
+				b1_cooldown = player_ship.b1_cooldown;
+			}
+
+			// Firing for player bullet type 2
+			if ((b2_firing == true) && (b2_cooldown < 1))
+			{
+				for (int i = 0; i < B2_SHOTS; i++)
+				{
+					if (b2[i].alive == false)
+					{
+						b2[i].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), 1, -10, B2_WIDTH, B2_HEIGHT);
+						b2[i+1].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), -1, -10, B2_WIDTH, B2_HEIGHT);
+						b2[i+2].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), 2, -10, B2_WIDTH, B2_HEIGHT);
+						b2[i+3].fire(player_ship.box.x + (SHIP_WIDTH / 2) - (B2_WIDTH / 2), player_ship.box.y + (SHIP_HEIGHT / 2), -2, -10, B2_WIDTH, B2_HEIGHT);
+						Mix_PlayChannel(-1, shot2, 0);
+						break;
+					}
+				}
+				b2_cooldown = player_ship.b2_cooldown;
+			}
+
+			// Update array for player bullet type 1
+			for (int i = 0; i < B1_SHOTS; i++)
+			{
+				b1[i].update();
+
+				for (int j = 0; j < AS1_MAX; j++)
+				{
+					if (box_collision(b1[i].box, a1[j].box)) // lazy box collision between bullet and asteroid
+					{
+						int debris_spawned = 0;
+						// Generate debris exploding in an "X" formation
+						for (int k = 0; k < D1_MAX; k++)
+						{
+							if (d1[k].alive == false)
+							{
+								if (debris_spawned == 0)
+								{
+									d1[k].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv+3, a1[j].yv-5);
+								}
+								else if (debris_spawned == 1)
+								{
+									d1[k+1].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv-3, a1[j].yv-5);
+								}
+								else if (debris_spawned == 2)
+								{
+									d1[k+2].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv+3, a1[j].yv-10);
+								}
+								else if (debris_spawned == 3)
+								{
+									d1[k+3].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv-3, a1[j].yv-10);
+								}
+								else
+								{
+									break;
+								}
+								debris_spawned++;
+							}
+						}
+						Mix_PlayChannel(-1, break1, 0);
+						// Destroy asteroid and bullet
+						a1[j].damage(b1[i].attack);
+						b1[i].die();
+						player_ship.increase_score(10);
+					}
+				}
+
+				// Collide with enemies
+				for (int j = 0; j < E1_MAX; j++)
+				{
+					if (box_collision(b1[i].box, e1[j].box))
+					{
+						e1[j].damage(b1[i].attack);
+						b1[i].die();
+						player_ship.increase_score(100);
+						Mix_PlayChannel(-1, break2, 0);
+					}
+				}
+
+				// Collide with debris
+				for (int j = 0; j < D1_MAX; j++)
+				{
+					if (box_collision(b1[i].box, d1[j].box))
+					{
+						b1[i].die();
+						d1[j].die();
+						player_ship.increase_score(5);
+					}
+				}
+			}
+			
+
+			// Update array for player bullet type 2
+			for (int i = 0; i < B2_SHOTS; i++)
+			{
+				b2[i].update();
+
+				for (int j = 0; j < AS1_MAX; j++)
+				{
+					if (box_collision(b2[i].box, a1[j].box))
+					{
+						int debris_spawned = 0;
+						// Generate debris exploding in an "X" formation
+						for (int k = 0; k < D1_MAX; k++)
+						{
+							if (d1[k].alive == false)
+							{
+								if (debris_spawned == 0)
+								{
+									d1[k].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv+3, a1[j].yv-5);
+								}
+								else if (debris_spawned == 1)
+								{
+									d1[k+1].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv-3, a1[j].yv-5);
+								}
+								else if (debris_spawned == 2)
+								{
+									d1[k+2].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv+3, a1[j].yv-10);
+								}
+								else if (debris_spawned == 3)
+								{
+									d1[k+3].spawn(a1[j].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[j].box.y + (AS1_HEIGHT / 2), a1[j].xv-3, a1[j].yv-10);
+								}
+								else
+								{
+									break;
+								}
+								debris_spawned++;
+							}
+						}
+						Mix_PlayChannel(-1, break1, 0);
+						// Destroy asteroid and bullet
+						a1[j].damage(b2[i].attack);
+						b2[i].die();
+						player_ship.increase_score(10);
+					}
+				}
+
+				// Collide with enemies
+				for (int j = 0; j < E1_MAX; j++)
+				{
+					if (box_collision(b2[i].box, e1[j].box))
+					{
+						e1[j].damage(b2[i].attack);
+						b2[i].die();
+						player_ship.increase_score(100);
+						Mix_PlayChannel(-1, break2, 0);
+					}
+				}
+
+				// Collide with debris
+				for (int j = 0; j < D1_MAX; j++)
+				{
+					if (box_collision(b2[i].box, d1[j].box))
+					{
+						b2[i].die();
+						d1[j].die();
+						player_ship.increase_score(5);
+					}
+				}
+			}
+
+			// Player weapons are cooling
+			b1_cooldown--;
+			b2_cooldown--;
+			
+			// Asteroid collisions
+			for (int i = 0; i < AS1_MAX; i++)
+			{
+				if (box_collision(player_ship.box, a1[i].box)) // lazy box collision between ship and asteroid
+				{
+					int debris_spawned = 0;
+					// Generate debris exploding in an "X" formation
+					for (int j = 0; j < D1_MAX; j++)
+					{
+						if (d1[j].alive == false)
+						{
+							if (debris_spawned == 0)
+							{
+								d1[j].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), a1[i].xv+3, a1[i].yv-5);
+							}
+							else if (debris_spawned == 1)
+							{
+								d1[j+1].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), a1[i].xv-3, a1[i].yv-5);
+							}
+							else if (debris_spawned == 2)
+							{
+								d1[j+2].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), a1[i].xv+3, a1[i].yv-10);
+							}
+							else if (debris_spawned == 3)
+							{
+								d1[j+3].spawn(a1[i].box.x + (AS1_WIDTH / 2) - (D1_WIDTH / 2), a1[i].box.y + (AS1_HEIGHT / 2), a1[i].xv-3, a1[i].yv-10);
+							}
+							else
+							{
+								break;
+							}
+							debris_spawned++;
+						}
+					}
+					Mix_PlayChannel(-1, break1, 0);
+					// Update ship health and the HUD string
+					player_ship.damage(a1[i].attack);
+					a1[i].die();
+				}
+
+				// Asteroids collide with debris
+				for (int j = 0; j < D1_MAX; j++)
+				{
+					if (box_collision(a1[i].box, d1[j].box))
+					{
+						a1[i].damage(d1[j].attack);
+						d1[j].die();
+					}
+				}
+			}
+
+			// Update scrolling backgrounds
+			update_bg(distant, screen);
+			update_bg(starfield, screen);
+			update_bg(planetoids, screen);
+			
+			// Display player bullets
+			for (int i = 0; i < B1_SHOTS; i++)
+			{
+				b1[i].show();
+			}
+			for (int i = 0; i < B2_SHOTS; i++)
+			{
+				b2[i].show();
+			}
+			
+			player_ship.show(); // display the ship's current position
+			
+			// Update AND display asteroid debris
+			for (int i = 0; i < D1_MAX; i++)
+			{
+				d1[i].update();
+				if (box_collision(d1[i].box, player_ship.box))
+				{
+					player_ship.damage(d1[i].attack);
+					d1[i].die();
+				}
+				d1[i].show();
+			}
+			
+			// Update AND display asteroids
+			for (int i = 0; i < AS1_MAX; i++)
+			{
+				a1[i].update();
+				a1[i].show();
+			}
+			
+			// Enemies move, fire, display
+			for (int i = 0; i< E1_MAX; i++)
+			{
+				if (e1[i].b3_cooldown < 1)
+				{
+					// Enemy bullets fire downwards
+					for (int j = 0; j < B3_SHOTS; j++)
+					{
+						if (e1[i].b3[j].alive == false)
+						{
+							e1[i].b3[j].fire(e1[i].box.x + (e1[i].box.w / 2) - (B3_WIDTH / 2), e1[i].box.y + (e1[i].box.h / 2), 0, 5, B3_WIDTH, B3_HEIGHT);
+							Mix_PlayChannel(-1, shot3, 0);
+							break;
+						}
+					}
+					e1[i].b3_cooldown = B3_COOLDOWN;
+				}
+				// Update enemy bullets and display
+				for (int j = 0; j < B3_SHOTS; j++)
+				{
+					e1[i].b3[j].update();
+					if (box_collision(player_ship.box, e1[i].b3[j].box)) // lazy box collision between ship and enemy bullets
+					{
+						e1[i].b3[j].die();
+						player_ship.damage(e1[i].b3[j].attack);
+					}
+					e1[i].b3[j].show();	
+				}
+				// Weapon cools down, enemy moves, check for collision with player, then display
+				e1[i].b3_cooldown--;
+				e1[i].update();
+				if (box_collision(player_ship.box, e1[i].box))
+				{
+					player_ship.damage(e1[i].attack);
+					e1[i].damage(player_ship.attack);
+				}
+				e1[i].show();
+			}
+			
+			// Apply foreground layers
+			update_bg(nebula, screen);
+			update_hud(player_ship, HUD_display, screen);
+			if (help)
+			{
+				apply_surface(0, 0, help_popup, screen);
+			}
+			
+			if (player_ship.return_hp() < 1)
+			{
+				apply_surface(0, 0, death_screen, screen);
+				game = false; dead = true;
+			}
+			
+			// Update the screen, if unable to do so, return 1
+			if( SDL_Flip( screen ) == -1 )
+			{
+				return 1;
+			}
+			
+			// Cap the frame rate to our specified maximum fps
+			if(fps.get_time() < 1000 / MAX_FPS)
+			{
+				SDL_Delay((1000 / MAX_FPS) - fps.get_time());
 			}
 		}
 		
-		apply_surface(0, 0, highscore_popup, screen);
-		show_highscores(score_table, HUD_display, screen);
+		menu = true;
+		Mix_HaltMusic();
 		
-		SDL_Flip(screen);
-		
-		SDL_Delay(2000);
+		// Handle player death
+		if (dead)
+		{
+			bool new_high = false, name_entry = false;
+			int pos = 0;
+			string player_name, tmp;
+			
+			SDL_Delay(2000);
+			
+			for (int i = 0; i < HIGHSCORE_ENTRIES; i++)
+			{
+				if (player_ship.return_score() > score_table[i].score)
+				{
+					new_high = true;
+					pos = score_table[i].pos;
+					//cout << player_ship.return_score() << endl << pos << endl;
+					break;
+				}
+			}
+			
+			if (new_high)
+			{
+				apply_surface(0, 0, enterscore_popup, screen);
+				name_entry = true;
+				SDL_EnableUNICODE(SDL_ENABLE);
+				SDL_FreeSurface(HUD_display);
+				player_name = " ";
+				HUD_display = TTF_RenderText_Solid(font1, player_name.c_str(), BLACK);
+				SDL_Flip(screen);
+			}
+			
+			while (name_entry)
+			{
+				
+				if (SDL_PollEvent(&event))
+				{
+					if( event.type == SDL_KEYDOWN )
+					{
+						tmp = player_name;
+						
+						// Add in any character typed, so long as less than 20 characters
+						if ((player_name.length() < 20) && (event.key.keysym.sym != SDLK_BACKSPACE) && (event.key.keysym.sym != SDLK_RETURN))
+						{
+							player_name += (char)event.key.keysym.unicode;
+						}
+						
+						// Delete characters with backspace
+						if ((player_name.length() > 1) && (event.key.keysym.sym == SDLK_BACKSPACE))
+						{
+							player_name.erase(player_name.length() - 1);
+						}
+						
+						SDL_FreeSurface(HUD_display);
+						HUD_display = TTF_RenderText_Solid(font1, player_name.c_str(), BLACK);
+						
+						// Finish name entry
+						if ((event.key.keysym.sym == SDLK_RETURN) && (player_name.length() > 1))
+						{
+							name_entry = false;
+							SDL_EnableUNICODE(SDL_DISABLE);
+							player_name.erase(0, 1);
+						}
+					}
+				}
+				
+				// Centre text
+				apply_surface(0, 0, enterscore_popup, screen);
+				apply_surface((SCREEN_WIDTH - HUD_display->w ) / 2, (SCREEN_HEIGHT - HUD_display->h) / 2, HUD_display, screen);
+				
+				SDL_Flip(screen);
+			
+				if(fps.get_time() < 1000 / MAX_FPS)
+				{
+					SDL_Delay((1000 / MAX_FPS) - fps.get_time());
+				}
+			}
+			
+			if (player_name.length() > 0)
+			{
+				//cout << pos << " " << player_name << " " << player_ship.return_score() << endl;
+				
+				score_table[9].pos = 9;
+				score_table[9].name = player_name;
+				score_table[9].score = player_ship.return_score();
+				
+				bubble_sort_scores(score_table);
+				
+				for (int i = 0; i < HIGHSCORE_ENTRIES; i++)
+				{
+					score_table[i].pos = i + 1;
+				}
+				
+				save_highscores(score_table);
+			}
+			
+			apply_surface(0, 0, highscore_popup, screen);
+			show_highscores(score_table, HUD_display, screen);
+			
+			SDL_Flip(screen);
+		}
 	}
 	
 	clean_quit();
@@ -1329,10 +1356,24 @@ void load_highscores(Highscore table[])
 		if (j > 2) {j = 0; i++;}
 	}
 	
-	for (int i = 0; i < 10; i++)
+	score_file.close();
+	
+	for (int i = 0; i < HIGHSCORE_ENTRIES; i++)
 	{
 		table[i].pos = i + 1;
 	}
+}
+
+void save_highscores(Highscore table[])
+{
+	ofstream score_file("highscore.txt");
+	
+	for (int i = 0; i < HIGHSCORE_ENTRIES; i++)
+	{
+		score_file << table[i].pos << "," << table[i].name << "," << table[i].score << ",";
+	}
+	
+	score_file.close();
 }
 
 void show_highscores(Highscore table[], SDL_Surface* HUD, SDL_Surface* screen)
@@ -1340,7 +1381,7 @@ void show_highscores(Highscore table[], SDL_Surface* HUD, SDL_Surface* screen)
 	stringstream ss;
 	int x = 70, y = 150;
 	
-	for (int i = 0; i < 10; i++)
+	for (int i = 0; i < HIGHSCORE_ENTRIES; i++)
 	{
 		ss << table[i].pos;
 		HUD = TTF_RenderText_Solid(font1, ss.str().c_str(), WHITE);
@@ -1369,7 +1410,7 @@ void bubble_sort_scores(Highscore table[])
 	bool flag = 1; 
 	Highscore temp;
 	
-	for (i = 0; (i < 10) && flag; i++)
+	for (i = 0; (i < HIGHSCORE_ENTRIES) && flag; i++)
 	{
 		flag = 0;
 		for (j = 0; j < (9); j++)
@@ -1559,6 +1600,18 @@ void Ship::show()
 	}
 }
 
+void Ship::reset_state()
+{
+	box.x = SCREEN_WIDTH / 2 - SHIP_WIDTH;
+	box.y = SCREEN_HEIGHT / 2 - SHIP_HEIGHT;
+	box.w = SHIP_WIDTH; box.h = SHIP_HEIGHT;
+	x_vel = 0; y_vel = 0;
+	frame = 0;
+	frame_up = true;
+	hp = 100; score = 0; attack = 10;
+	b1_cooldown = B1_COOLDOWN; b2_cooldown = B2_COOLDOWN;	
+}
+
 
 // TIMER CLASS FUNCTIONS //
 
@@ -1680,7 +1733,7 @@ void Asteroid::spawn()
 {
 	alive = true;
 	box.x = rand() % SCREEN_WIDTH; 
-	box.y = rand() % 100 - SCREEN_HEIGHT; 
+	box.y = rand() % 150 - SCREEN_HEIGHT * 2; 
 	xv = rand() % 6 - 3;
 	yv = rand() % 4 + 1;
 }
@@ -1817,7 +1870,7 @@ void Enemy::spawn()
 {
 	alive = true;
 	box.x = rand() % SCREEN_WIDTH; 
-	box.y = rand() % 200 - SCREEN_HEIGHT; 
+	box.y = rand() % 300 - SCREEN_HEIGHT * 2; 
 	yv = rand() % 4 + 2;
 }
 

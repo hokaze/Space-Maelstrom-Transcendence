@@ -1,3 +1,8 @@
+# v0.44 #
+Highscores now save to file, slight tweaks to asteroid and enemy spawn area, elimination of some magic numbers.
+Loop now works so that you can exit the game (with ESC or death) and return to the menu. Somewhat buggy.
+Bug: there's still something destroying objects invisibly in the bottom left of the screen sometimes.
+
 # v0.43 #
 Death condition added (outside debug mode) with death splash, then high score table.
 Start of high score entry system: checks if score is higher than any current high scores, lets user enter name.
