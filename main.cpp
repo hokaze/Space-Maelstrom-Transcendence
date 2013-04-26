@@ -80,6 +80,8 @@ SDL_Surface *title_bg = NULL;
 SDL_Surface *title_selection = NULL;
 SDL_Surface *help_popup = NULL;
 SDL_Surface *highscore_popup = NULL;
+SDL_Surface *death_screen = NULL;
+SDL_Surface *enterscore_popup = NULL;
 SDL_Surface *ship = NULL;
 SDL_Surface *bullet = NULL;
 SDL_Surface *bullet2 = NULL;
@@ -96,6 +98,7 @@ SDL_Surface *screen = NULL;
 
 SDL_Event event;
 const SDL_Color WHITE = {255,255,255};
+const SDL_Color BLACK = {0, 0, 0};
 
 Mix_Music *bgm1 = NULL;
 Mix_Chunk *shot1 = NULL;
@@ -259,6 +262,7 @@ bool box_collision(SDL_Rect A, SDL_Rect B);
 void update_hud(Ship player, SDL_Surface* HUD, SDL_Surface* screen);
 void load_highscores(Highscore table[]);
 void show_highscores(Highscore table[], SDL_Surface* HUD, SDL_Surface* screen);
+void bubble_sort_scores(Highscore table[]);
 
 
 //////////////////////////////////////////////////////////////////////
@@ -292,7 +296,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		return 1;
 	}
 	
-	bool quit = false; // quit flag
+	bool quit = false, dead = false; // quit/death flags
 	Highscore score_table[10]; // highscores has 10 entries
 	bool menu = true; bool help = false; bool view_scores = false;
 	int menu_item  = 0; int menu_action = 0;
@@ -494,7 +498,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	}
 	
 	// While the user hasn't quit, control fps and input events
-	while(quit == false)
+	while((quit == false) && (dead == false))
 	{
 		fps.start(); // start timer
 		
@@ -911,7 +915,12 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 			apply_surface(0, 0, help_popup, screen);
 		}
 		
-
+		if (player_ship.return_hp() < 1)
+		{
+			apply_surface(0, 0, death_screen, screen);
+			quit = true; dead = true;
+		}
+		
 		// Update the screen, if unable to do so, return 1
 		if( SDL_Flip( screen ) == -1 )
 		{
@@ -923,6 +932,108 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 		{
 			SDL_Delay((1000 / MAX_FPS) - fps.get_time());
 		}
+	}
+	
+	// Handle player death
+	if (dead)
+	{
+		bool new_high = false, name_entry = false;
+		int pos = 0;
+		string player_name, tmp;
+		
+		Mix_HaltMusic();
+		SDL_Delay(2000);
+		
+		for (int i = 0; i < 10; i++)
+		{
+			if (player_ship.return_score() > score_table[i].score)
+			{
+				new_high = true;
+				pos = score_table[i].pos;
+				//cout << player_ship.return_score() << endl << pos << endl;
+				break;
+			}
+		}
+		
+		if (new_high)
+		{
+			apply_surface(0, 0, enterscore_popup, screen);
+			name_entry = true;
+			SDL_EnableUNICODE(SDL_ENABLE);
+			SDL_FreeSurface(HUD_display);
+			player_name = " ";
+			HUD_display = TTF_RenderText_Solid(font1, player_name.c_str(), BLACK);
+			SDL_Flip(screen);
+		}
+		
+		while (name_entry)
+		{
+			
+			if (SDL_PollEvent(&event))
+			{
+				if( event.type == SDL_KEYDOWN )
+				{
+					tmp = player_name;
+					
+					// Add in any character typed, so long as less than 20 characters
+					if ((player_name.length() < 20) && (event.key.keysym.sym != SDLK_BACKSPACE) && (event.key.keysym.sym != SDLK_RETURN))
+					{
+						player_name += (char)event.key.keysym.unicode;
+					}
+					
+					// Delete characters with backspace
+					if ((player_name.length() > 1) && (event.key.keysym.sym == SDLK_BACKSPACE))
+					{
+						player_name.erase(player_name.length() - 1);
+					}
+					
+					SDL_FreeSurface(HUD_display);
+					HUD_display = TTF_RenderText_Solid(font1, player_name.c_str(), BLACK);
+					
+					// Finish name entry
+					if ((event.key.keysym.sym == SDLK_RETURN) && (player_name.length() > 1))
+					{
+						name_entry = false;
+						SDL_EnableUNICODE(SDL_DISABLE);
+						player_name.erase(0, 1);
+					}
+				}
+			}
+			
+			// Centre text
+			apply_surface(0, 0, enterscore_popup, screen);
+			apply_surface((SCREEN_WIDTH - HUD_display->w ) / 2, (SCREEN_HEIGHT - HUD_display->h) / 2, HUD_display, screen);
+			
+			SDL_Flip(screen);
+		
+			if(fps.get_time() < 1000 / MAX_FPS)
+			{
+				SDL_Delay((1000 / MAX_FPS) - fps.get_time());
+			}
+		}
+		
+		if (player_name.length() > 0)
+		{
+			//cout << pos << " " << player_name << " " << player_ship.return_score() << endl;
+			
+			score_table[9].pos = 9;
+			score_table[9].name = player_name;
+			score_table[9].score = player_ship.return_score();
+			
+			bubble_sort_scores(score_table);
+			
+			for (int i = 0; i < 10; i++)
+			{
+				score_table[i].pos = i + 1;
+			}
+		}
+		
+		apply_surface(0, 0, highscore_popup, screen);
+		show_highscores(score_table, HUD_display, screen);
+		
+		SDL_Flip(screen);
+		
+		SDL_Delay(2000);
 	}
 	
 	clean_quit();
@@ -1031,6 +1142,8 @@ bool load_files()
 	title_selection = load_image("img/title_selection.png");
 	help_popup = load_image("img/help_popup.png");
 	highscore_popup = load_image("img/highscore_popup.png");
+	death_screen = load_image("img/death_screen.png");
+	enterscore_popup = load_image("img/enterscore_popup.png");
 	ship = load_image("img/shipsheet.png");
 	bullet = load_image("img/pew1.png");
 	bullet2 = load_image("img/pew2.png");
@@ -1215,6 +1328,11 @@ void load_highscores(Highscore table[])
 		j++;
 		if (j > 2) {j = 0; i++;}
 	}
+	
+	for (int i = 0; i < 10; i++)
+	{
+		table[i].pos = i + 1;
+	}
 }
 
 void show_highscores(Highscore table[], SDL_Surface* HUD, SDL_Surface* screen)
@@ -1242,6 +1360,28 @@ void show_highscores(Highscore table[], SDL_Surface* HUD, SDL_Surface* screen)
 		x = 70; y += 25;
 		SDL_FreeSurface(HUD);
 		ss.str(string());
+	}
+}
+
+void bubble_sort_scores(Highscore table[])
+{
+	int i, j;
+	bool flag = 1; 
+	Highscore temp;
+	
+	for (i = 0; (i < 10) && flag; i++)
+	{
+		flag = 0;
+		for (j = 0; j < (9); j++)
+		{
+			if (table[j+1].score > table[j].score)
+			{ 
+				temp = table[j];
+				table[j] = table[j+1];
+				table[j+1] = temp;
+				flag = 1;
+			}
+		}
 	}
 }
 

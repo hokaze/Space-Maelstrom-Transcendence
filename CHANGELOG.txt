@@ -1,6 +1,12 @@
+# v0.43 #
+Death condition added (outside debug mode) with death splash, then high score table.
+Start of high score entry system: checks if score is higher than any current high scores, lets user enter name.
+Highscores are now bubble sorted based on score, with pos added based on array position.
+
 # v0.42 #
 All bugs with F1 help in-game seem to be fixed.
 Added high score display and sounds to menu. Because of input bug, sounds may play twice
+Basic declaration of ownership added.
 
 # v0.41 #
 Modification to Ship::handle_input() fixes movement bug with pressing F1 in-game.
