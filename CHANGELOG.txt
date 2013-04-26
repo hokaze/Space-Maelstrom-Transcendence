@@ -1,3 +1,11 @@
+# v0.47 #
+Updated help_popup to include powerups and vortexes. Formerly unused pew4 now used for powerup collection.
+Increased difficulty:
+- decreased B3_COOLDOWN from 60 to 45, increased E1_ATTACK from 5 to 15
+- increased AS1_MAX from 20 to 25, E1_MAX from 10 to 12, V1_MAX from 3 to 5
+- decreased chance of powerup spawn from 1/4 to 1/8
+Window title goes from "Loading..." to "Space Maelstrom Transcendence" when menu is ready.
+
 # v0.46 #
 Added powerups in 4 types: +20 HP, -2 B1 cooldown, -4 B2 cooldown, +1000 points.
 Powerups only collide with players, no other objects, randomly spawned upon enemy death by any cause.

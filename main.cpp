@@ -64,26 +64,26 @@ const int AS1_SCORE = 10;
 const int D1_HEIGHT = 20;
 const int D1_WIDTH = 20;
 const int D1_MAX = AS1_MAX * 4;
-const int D1_ATTACK = 2;
+const int D1_ATTACK = 3;
 const int D1_SCORE = 5;
 const int V1_HEIGHT = 46;
 const int V1_WIDTH = 46;
-const int V1_MAX = 3;
+const int V1_MAX = 5;
 const int V1_ATTACK = 1;
 const int V1_SPRITES = 10;
 
 // Enemy related stuff
 const int E1_HEIGHT = 30;
 const int E1_WIDTH = 26;
-const int E1_MAX = 10;
+const int E1_MAX = 12;
 const int E1_HP = 10;
-const int E1_ATTACK = 5;
+const int E1_ATTACK = 15;
 const int E1_EXPLODE_TIME = MAX_FPS / 4;
 const int E1_SCORE = 50;
 const int B3_WIDTH = 8;
 const int B3_HEIGHT = 12;
 const int B3_SHOTS = 4;
-const int B3_COOLDOWN = 60;
+const int B3_COOLDOWN = 45;
 const int B3_ATTACK = 5;
 
 // Powerups
@@ -129,6 +129,7 @@ Mix_Music *bgm1 = NULL;
 Mix_Chunk *shot1 = NULL;
 Mix_Chunk *shot2 = NULL;
 Mix_Chunk *shot3 = NULL;
+Mix_Chunk *powerup = NULL;
 Mix_Chunk *break1 = NULL;
 Mix_Chunk *break2 = NULL;
 Mix_Chunk *menu1 = NULL;
@@ -420,6 +421,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 	
 	player_ship.set_clips();
 	
+	SDL_WM_SetCaption("Space Maelstrom Transcendence", NULL);
 	
 	while (quit == false)
 	{
@@ -1075,6 +1077,7 @@ int main(int argc, char* args[]) // standard SDL setup for main()
 					{
 						e1[i].pow.apply_effect(player_ship);
 						e1[i].pow.die();
+						Mix_PlayChannel(-1, powerup, 0);
 					}
 					e1[i].pow.show();
 				}
@@ -1270,7 +1273,7 @@ void apply_surface(int x, int y, SDL_Surface* source, SDL_Surface* destination, 
 bool init()
 {
 	// Setup SDL systems, return false if there was an issue
-	if(SDL_Init( SDL_INIT_EVERYTHING ) == -1)
+	if (SDL_Init(SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_VIDEO) == -1)
 	{
 		return false;
 	}
@@ -1284,7 +1287,7 @@ bool init()
 		screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE);
 	}
 	
-	if( screen == NULL )
+	if (screen == NULL)
 	{
 		return false;
 	}
@@ -1293,20 +1296,20 @@ bool init()
 	//args: sound frequency, sound format, audio channels and sample size
 	//for other formats besides wav (e.g. FLAC, MOD, MP3, OGG) use Mix_Init(flags)
 	//to add support. Don't forget to then use Mix_Quit() when done with the decoders!
-	if( Mix_OpenAudio( 22050, MIX_DEFAULT_FORMAT, 2, 4096 ) == -1 )
+	if (Mix_OpenAudio( 22050, MIX_DEFAULT_FORMAT, 2, 4096 ) == -1)
 	{
 		return false;
 	}
 	
 	// Initialise SDL_ttf
-	if( TTF_Init() == -1 )
+	if (TTF_Init() == -1)
 	{
 		return false;    
 		
 	}
 	
-	
-	SDL_WM_SetCaption("Space Maelstrom Transcendence", NULL); // set the window title and icon
+	//SDL_WM_SetCaption("Space Maelstrom Transcendence", NULL); // set the window title and icon
+	SDL_WM_SetCaption("Loading...", NULL);
 	
 	return true; // everything initialised fine
 }
@@ -1342,6 +1345,7 @@ bool load_files()
 	shot1 = Mix_LoadWAV("snd/pew1.wav");
 	shot2 = Mix_LoadWAV("snd/pew2.wav");
 	shot3 = Mix_LoadWAV("snd/pew3.wav");
+	powerup = Mix_LoadWAV("snd/pew4.wav");
 	break1 = Mix_LoadWAV("snd/break1.wav");
 	break2 = Mix_LoadWAV("snd/break2.wav");
 	menu1 = Mix_LoadWAV("snd/menu1.wav");
@@ -2048,8 +2052,8 @@ void Enemy::damage(int attack)
 
 void Enemy::die()
 {
-	// 1/4 Chance to randomly spawn a powerup
-	if ((rand()% 4) == 0)
+	// 1/8 Chance to randomly spawn a powerup
+	if ((rand()% 8) == 0)
 	{
 		if (pow.alive == false)
 		{
